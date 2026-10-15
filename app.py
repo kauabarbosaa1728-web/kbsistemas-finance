@@ -5,7 +5,6 @@ import os
 
 from datetime import date, datetime
 from decimal import Decimal
-from functools import wraps
 from zoneinfo import ZoneInfo
 
 import click
@@ -144,7 +143,6 @@ def shift_month(month, offset):
 
 def owned_workspace():
     workspace_id = session.get("workspace_id")
-
     workspace = None
 
     if isinstance(workspace_id, int):
@@ -185,8 +183,6 @@ def owned_record(model, record_id, workspace):
 
 
 def bump_revision(workspace):
-    # Incremento feito pelo banco para evitar perder
-    # atualizações simultâneas.
     db.session.execute(
         update(Workspace)
         .where(Workspace.id == workspace.id)
@@ -244,8 +240,6 @@ def transaction_total(
         Transaction.status == status,
     )
 
-    # Realizados usam a data efetiva.
-    # Pendentes usam a data prevista.
     date_column = (
         Transaction.paid_date
         if status == "paid"
@@ -703,7 +697,6 @@ def transactions():
     kind = request.args.get("kind", "")
     status = request.args.get("status", "")
 
-    # Nesta lista, o mês representa o vencimento.
     statement = select(Transaction).where(
         Transaction.workspace_id == workspace.id,
         Transaction.due_date >= start,
@@ -733,7 +726,6 @@ def transactions():
         Transaction.id.desc(),
     )
 
-    # Paginação para não carregar todos os registros de uma vez.
     page_number = request.args.get("page", 1, type=int)
 
     pagination = db.paginate(
@@ -1157,8 +1149,6 @@ def reports():
 def csv_safe(value):
     text = str(value)
 
-    # Evita que textos sejam interpretados como fórmulas
-    # ao abrir o CSV em uma planilha.
     if text.lstrip().startswith(("=", "+", "-", "@")):
         return "'" + text
 
@@ -1246,9 +1236,20 @@ def health():
 
 @app.cli.command("init-db")
 def init_db():
-    """Cria as tabelas na primeira instalação."""
+    """Cria as tabelas que ainda não existem."""
     db.create_all()
     click.echo("Banco de dados inicializado.")
+
+
+# --------------------------------------------------
+# ADMINISTRAÇÃO DA PLATAFORMA
+# --------------------------------------------------
+
+# Carrega o modelo de bloqueios e registra as rotas
+# administrativas antes de iniciar o aplicativo.
+from admin import init_admin
+
+init_admin(app)
 
 
 if __name__ == "__main__":
