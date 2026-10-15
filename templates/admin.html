@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-heading">
+  <div>
+    <h1>Administração</h1>
+
+    <p class="muted small">
+      Gerencie os clientes e os acessos da KBSistemas Finance.
+    </p>
+  </div>
+
+  <span class="badge badge-primary">
+    Acesso exclusivo do dono
+  </span>
+</div>
+
+<div class="grid-equal">
+  <section class="panel">
+    <p class="stat-label">Contas cadastradas</p>
+
+    <strong class="stat-value">
+      {{ users | length }}
+    </strong>
+
+    <p class="small muted">
+      Inclui sua conta de administrador.
+    </p>
+  </section>
+
+  <section class="panel">
+    <p class="stat-label">Contas bloqueadas</p>
+
+    <strong class="stat-value negative">
+      {{ blocked_ids | length }}
+    </strong>
+
+    <p class="small muted">
+      Acesso impedido até a liberação.
+    </p>
+  </section>
+</div>
+
+<section class="panel">
+  <div class="panel-heading">
+    <div>
+      <h2>Clientes e usuários</h2>
+      <p>Dados cadastrais e situação de acesso</p>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Nome</th>
+          <th>E-mail</th>
+          <th>Cadastro</th>
+          <th>Espaços</th>
+          <th>Situação</th>
+          <th class="text-right">Ação</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {% for user in users %}
+          {% set blocked = user.id in blocked_ids %}
+
+          <tr>
+            <td>
+              <strong>{{ user.name }}</strong>
+            </td>
+
+            <td>{{ user.email }}</td>
+
+            <td class="nowrap">
+              {{ user.created_at | date_br }}
+            </td>
+
+            <td>
+              {{ workspace_counts.get(user.id, 0) }}
+            </td>
+
+            <td>
+              {% if user.id == current_user.id %}
+                <span class="badge badge-primary">
+                  Administrador
+                </span>
+
+              {% elif blocked %}
+                <span class="badge badge-danger">
+                  Bloqueado
+                </span>
+
+              {% else %}
+                <span class="badge badge-success">
+                  Liberado
+                </span>
+              {% endif %}
+            </td>
+
+            <td class="text-right">
+              {% if user.id != current_user.id %}
+                <form
+                  method="POST"
+                  action="{{ url_for('admin_set_access', user_id=user.id) }}"
+                  class="inline-form"
+                  data-access-form
+                >
+                  {{ action_form.hidden_tag() }}
+
+                  <input
+                    type="hidden"
+                    name="action"
+                    value="{{ 'unblock' if blocked else 'block' }}"
+                  >
+
+                  <button
+                    type="submit"
+                    class="btn btn-sm {{ 'btn-soft' if blocked else 'btn-danger' }}"
+                  >
+                    {{ 'Liberar acesso' if blocked else 'Bloquear acesso' }}
+                  </button>
+                </form>
+
+              {% else %}
+                <span class="small muted">
+                  Sua conta
+                </span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="info-box">
+  <strong>Privacidade dos clientes</strong>
+  <br>
+  Este painel administra os acessos. Ele não exibe
+  saldos, lançamentos ou metas financeiras dos clientes.
+  Bloquear um acesso preserva os dados cadastrados.
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.querySelectorAll("[data-access-form]")
+    .forEach((form) => {
+      form.addEventListener("submit", (event) => {
+        if (!window.confirm("Confirmar a alteração de acesso?")) {
+          event.preventDefault();
+        }
+      });
+    });
+</script>
+{% endblock %}
