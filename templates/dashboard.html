@@ -1,0 +1,843 @@
+{% extends "base.html" %}
+
+{% block extra_head %}
+<style>
+  .finance-chart {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    align-items: end;
+    gap: 12px;
+
+    height: 240px;
+    padding-top: 20px;
+
+    background: repeating-linear-gradient(
+      to top,
+      transparent 0,
+      transparent 54px,
+      var(--border) 55px,
+      transparent 56px
+    );
+  }
+
+  .chart-group {
+    min-width: 0;
+    text-align: center;
+  }
+
+  .chart-bars {
+    height: 190px;
+
+    display: flex;
+    justify-content: center;
+    align-items: end;
+    gap: 6px;
+  }
+
+  .chart-bar {
+    width: 25px;
+    max-width: 35%;
+    border-radius: 5px 5px 0 0;
+  }
+
+  .chart-bar.income {
+    background: var(--primary);
+  }
+
+  .chart-bar.expense {
+    background: #6bc9ac;
+  }
+
+  .chart-month {
+    display: block;
+    margin-top: 12px;
+
+    color: var(--muted);
+    font-size: 11px;
+  }
+
+  .chart-legend {
+    display: flex;
+    justify-content: center;
+    gap: 22px;
+
+    margin-top: 23px;
+    color: var(--muted);
+    font-size: 11px;
+  }
+
+  .legend-dot {
+    display: inline-block;
+
+    width: 8px;
+    height: 8px;
+    margin-right: 6px;
+
+    border-radius: 50%;
+    background: var(--primary);
+  }
+
+  .sync-status {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+
+    margin-top: 13px;
+    color: var(--muted);
+    font-size: 11px;
+  }
+
+  .sync-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--success);
+  }
+
+  .budget-preview {
+    margin-top: 18px;
+  }
+
+  .budget-preview:first-child {
+    margin-top: 0;
+  }
+
+  @media (max-width: 600px) {
+    .finance-chart {
+      gap: 6px;
+    }
+
+    .chart-bars {
+      gap: 4px;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-heading">
+  <div>
+    <h1>Visão geral</h1>
+
+    <p class="muted small">
+      Clareza para hoje. Planejamento para o amanhã.
+    </p>
+
+    <div class="sync-status" role="status">
+      <span class="sync-dot" id="sync-dot"></span>
+      <span id="sync-text">Carregando painel…</span>
+    </div>
+  </div>
+
+  <div class="actions">
+    <form method="GET" action="{{ url_for('dashboard') }}">
+      <label for="dashboard-month" class="small muted">
+        Mês de referência
+      </label>
+
+      <div class="actions" style="margin-top: 5px;">
+        <input
+          type="month"
+          id="dashboard-month"
+          name="month"
+          value="{{ month }}"
+          min="1900-01"
+          max="9998-12"
+          required
+          style="width: 155px;"
+        >
+
+        <button type="submit" class="btn btn-secondary">
+          Ver
+        </button>
+      </div>
+    </form>
+
+    <a
+      href="{{ url_for('transaction_form') }}"
+      class="btn"
+    >
+      + Novo lançamento
+    </a>
+  </div>
+</div>
+
+<div class="cards">
+  <section class="stat-card primary">
+    <div class="stat-label">Saldo acumulado</div>
+
+    <strong class="stat-value" id="balance">
+      {{ summary.balance_cents | brl }}
+    </strong>
+
+    <div class="stat-note">
+      Saldo inicial + realizados até o fim do mês
+    </div>
+  </section>
+
+  <section class="stat-card">
+    <div class="stat-label">Receitas do mês</div>
+
+    <strong class="stat-value positive" id="income">
+      {{ summary.income_cents | brl }}
+    </strong>
+
+    <div class="stat-note">
+      Pela data do recebimento
+    </div>
+  </section>
+
+  <section class="stat-card">
+    <div class="stat-label">Despesas do mês</div>
+
+    <strong class="stat-value negative" id="expense">
+      {{ summary.expense_cents | brl }}
+    </strong>
+
+    <div class="stat-note">
+      Pela data do pagamento
+    </div>
+  </section>
+
+  <section class="stat-card">
+    <div class="stat-label">Resultado do mês</div>
+
+    <strong class="stat-value" id="result">
+      {{ summary.result_cents | brl }}
+    </strong>
+
+    <div class="stat-note" id="savings-note">
+      Receitas menos despesas realizadas
+    </div>
+  </section>
+</div>
+
+<div class="grid-2">
+  <section class="panel">
+    <div class="panel-heading">
+      <div>
+        <h2>Receitas e despesas</h2>
+        <p>Evolução dos últimos seis meses</p>
+      </div>
+
+      <span class="badge badge-primary">
+        Realizados
+      </span>
+    </div>
+
+    <div
+      class="finance-chart"
+      id="finance-chart"
+      role="img"
+      aria-label="Comparação mensal de receitas e despesas"
+    ></div>
+
+    <div class="chart-legend">
+      <span>
+        <i class="legend-dot"></i>
+        Receitas
+      </span>
+
+      <span>
+        <i
+          class="legend-dot"
+          style="background: #6bc9ac;"
+        ></i>
+        Despesas
+      </span>
+    </div>
+
+    <details style="margin-top: 20px;">
+      <summary class="small muted" style="cursor: pointer;">
+        Ver valores do gráfico
+      </summary>
+
+      <div class="table-wrap" style="margin-top: 12px;">
+        <table>
+          <thead>
+            <tr>
+              <th>Mês</th>
+              <th>Receitas</th>
+              <th>Despesas</th>
+            </tr>
+          </thead>
+
+          <tbody id="chart-values"></tbody>
+        </table>
+      </div>
+    </details>
+  </section>
+
+  <section class="panel">
+    <div class="panel-heading">
+      <div>
+        <h2>Próximas conquistas</h2>
+        <p>Acompanhe suas reservas</p>
+      </div>
+
+      <a href="{{ url_for('goals') }}" class="btn btn-soft btn-sm">
+        Ver metas
+      </a>
+    </div>
+
+    <div id="goals-preview"></div>
+
+    <div
+      class="info-box"
+      id="month-insight"
+      style="margin-top: 20px;"
+    ></div>
+
+    <p class="field-help" style="margin-top: 12px;">
+      A reserva das metas é informativa.
+      Ela não desconta automaticamente o saldo das contas.
+    </p>
+  </section>
+</div>
+
+<div class="grid-equal">
+  <section class="panel">
+    <div class="panel-heading">
+      <div>
+        <h2>Contas pendentes</h2>
+        <p>Valores previstos para o mês selecionado</p>
+      </div>
+    </div>
+
+    <div class="row-between" style="padding: 14px 0;">
+      <span class="small muted">A receber</span>
+      <strong class="positive" id="pending-income"></strong>
+    </div>
+
+    <div
+      class="row-between"
+      style="padding: 14px 0; border-top: 1px solid var(--border);"
+    >
+      <span class="small muted">A pagar</span>
+      <strong class="negative" id="pending-expense"></strong>
+    </div>
+
+    <div
+      class="info-box"
+      style="
+        margin-top: 15px;
+        background: var(--warning-light);
+        color: var(--warning);
+      "
+    >
+      <strong id="overdue-expense"></strong>
+      em despesas vencidas e ainda pendentes, de todos os meses.
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-heading">
+      <div>
+        <h2>Planejamento mensal</h2>
+        <p>Despesas realizadas por categoria</p>
+      </div>
+
+      <a
+        href="{{ url_for('budgets', month=month) }}"
+        class="btn btn-soft btn-sm"
+      >
+        Planejar
+      </a>
+    </div>
+
+    <div id="budgets-preview"></div>
+  </section>
+</div>
+
+<section class="panel">
+  <div class="panel-heading">
+    <div>
+      <h2>Últimas alterações</h2>
+      <p>Lançamentos mais recentes de todo este espaço financeiro</p>
+    </div>
+
+    <a
+      href="{{ url_for('transactions', month=month) }}"
+      class="btn btn-soft btn-sm"
+    >
+      Ver lançamentos
+    </a>
+  </div>
+
+  <div id="recent-empty" class="empty-state" hidden>
+    <h3>Seu controle começa aqui.</h3>
+
+    <p>
+      Cadastre uma receita ou despesa para acompanhar
+      suas primeiras movimentações.
+    </p>
+
+    <a href="{{ url_for('transaction_form') }}" class="btn">
+      + Primeiro lançamento
+    </a>
+  </div>
+
+  <div class="table-wrap" id="recent-table">
+    <table>
+      <thead>
+        <tr>
+          <th>Descrição</th>
+          <th>Categoria</th>
+          <th>Vencimento</th>
+          <th>Situação</th>
+          <th class="text-right">Valor</th>
+        </tr>
+      </thead>
+
+      <tbody id="recent-rows"></tbody>
+    </table>
+  </div>
+</section>
+
+<noscript>
+  <div class="alert">
+    Ative o JavaScript para visualizar o gráfico e
+    atualizar automaticamente este painel.
+    Os quatro indicadores principais continuam disponíveis
+    ao recarregar a página.
+  </div>
+</noscript>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (() => {
+    "use strict";
+
+    const initialData = {{ summary | tojson }};
+    const expectedWorkspace = initialData.workspace_id;
+
+    const apiUrl = {{
+      url_for("dashboard_api", month=month) | tojson
+    }};
+
+    const loginUrl = {{ url_for("login") | tojson }};
+    const dashboardUrl = {{ url_for("dashboard") | tojson }};
+
+    const currency = new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL"
+    });
+
+    const percent = new Intl.NumberFormat("pt-BR", {
+      maximumFractionDigits: 1
+    });
+
+    let timer = null;
+    let loading = false;
+    let stopped = false;
+    let lastRevision = initialData.revision;
+
+    function money(cents) {
+      return currency.format(cents / 100);
+    }
+
+    function node(tag, className, text) {
+      const element = document.createElement(tag);
+
+      if (className) {
+        element.className = className;
+      }
+
+      if (text !== undefined) {
+        element.textContent = text;
+      }
+
+      return element;
+    }
+
+    function setText(id, text) {
+      document.getElementById(id).textContent = text;
+    }
+
+    function dateLabel(value) {
+      if (!value) {
+        return "—";
+      }
+
+      return value.split("-").reverse().join("/");
+    }
+
+    function monthLabel(value) {
+      const [year, month] = value.split("-").map(Number);
+
+      return new Intl.DateTimeFormat("pt-BR", {
+        month: "short",
+        year: "2-digit"
+      }).format(new Date(year, month - 1, 1));
+    }
+
+    function emptyMessage(text) {
+      return node("div", "empty-state small", text);
+    }
+
+    function progress(value, danger = false) {
+      const track = node("div", "progress");
+      const bar = node("div", "progress-bar");
+
+      bar.style.width = `${Math.max(0, Math.min(100, value))}%`;
+
+      if (danger) {
+        bar.style.background = "var(--danger)";
+      }
+
+      track.append(bar);
+
+      return track;
+    }
+
+    function renderChart(series) {
+      const chart = document.getElementById("finance-chart");
+      const values = document.getElementById("chart-values");
+
+      chart.replaceChildren();
+      values.replaceChildren();
+
+      const maximum = Math.max(
+        1,
+        ...series.flatMap(item => [
+          item.income_cents,
+          item.expense_cents
+        ])
+      );
+
+      for (const item of series) {
+        const group = node("div", "chart-group");
+        const bars = node("div", "chart-bars");
+
+        for (const [kind, amount, label] of [
+          ["income", item.income_cents, "Receitas"],
+          ["expense", item.expense_cents, "Despesas"]
+        ]) {
+          const bar = node("div", `chart-bar ${kind}`);
+
+          bar.style.height = `${amount / maximum * 100}%`;
+          bar.title = `${label}: ${money(amount)}`;
+          bar.setAttribute("aria-hidden", "true");
+
+          bars.append(bar);
+        }
+
+        group.append(
+          bars,
+          node("span", "chart-month", monthLabel(item.month))
+        );
+
+        chart.append(group);
+
+        const row = document.createElement("tr");
+
+        row.append(
+          node("td", "", monthLabel(item.month)),
+          node("td", "positive", money(item.income_cents)),
+          node("td", "negative", money(item.expense_cents))
+        );
+
+        values.append(row);
+      }
+
+      chart.setAttribute(
+        "aria-label",
+        "Receitas e despesas dos últimos seis meses. " +
+        "Os valores estão disponíveis na tabela abaixo."
+      );
+    }
+
+    function renderGoals(goals) {
+      const container = document.getElementById("goals-preview");
+
+      container.replaceChildren();
+
+      if (!goals.length) {
+        container.append(
+          emptyMessage("Crie uma meta para sua próxima conquista.")
+        );
+
+        return;
+      }
+
+      for (const goal of goals.slice(0, 3)) {
+        const item = node("div", "goal-item");
+        const heading = node("div", "row-between");
+
+        const percentage = Math.min(
+          100,
+          goal.saved_cents / goal.target_cents * 100
+        );
+
+        heading.append(
+          node("strong", "small", goal.name),
+          node("span", "small muted", `${percent.format(percentage)}%`)
+        );
+
+        heading.style.marginBottom = "12px";
+
+        const caption = node(
+          "p",
+          "field-help",
+          `${money(goal.saved_cents)} de ${money(goal.target_cents)}`
+        );
+
+        item.append(heading, progress(percentage), caption);
+        container.append(item);
+      }
+    }
+
+    function renderBudgets(budgets) {
+      const container = document.getElementById("budgets-preview");
+
+      container.replaceChildren();
+
+      if (!budgets.length) {
+        container.append(
+          emptyMessage("Defina limites por categoria no planejamento.")
+        );
+
+        return;
+      }
+
+      for (const budget of budgets.slice(0, 4)) {
+        const item = node("div", "budget-preview");
+        const heading = node("div", "row-between");
+
+        heading.append(
+          node("strong", "small", budget.category),
+          node(
+            "span",
+            "small muted",
+            `${money(budget.spent_cents)} / ${money(budget.limit_cents)}`
+          )
+        );
+
+        heading.style.marginBottom = "10px";
+
+        item.append(
+          heading,
+          progress(
+            budget.spent_cents / budget.limit_cents * 100,
+            budget.spent_cents > budget.limit_cents
+          )
+        );
+
+        container.append(item);
+      }
+    }
+
+    function renderRecent(items) {
+      const rows = document.getElementById("recent-rows");
+
+      rows.replaceChildren();
+
+      document.getElementById("recent-empty").hidden = items.length > 0;
+      document.getElementById("recent-table").hidden = items.length === 0;
+
+      for (const item of items) {
+        const row = document.createElement("tr");
+        const statusCell = document.createElement("td");
+
+        statusCell.append(
+          node(
+            "span",
+            item.status === "paid"
+              ? "badge badge-success"
+              : "badge badge-warning",
+            item.status === "paid" ? "Realizado" : "Pendente"
+          )
+        );
+
+        row.append(
+          node("td", "", item.description),
+          node("td", "muted", item.category),
+          node("td", "nowrap", dateLabel(item.due_date)),
+          statusCell,
+          node(
+            "td",
+            `text-right nowrap ${
+              item.kind === "income" ? "positive" : "negative"
+            }`,
+            `${item.kind === "income" ? "+" : "−"} ${money(item.amount_cents)}`
+          )
+        );
+
+        rows.append(row);
+      }
+    }
+
+    function render(data) {
+      setText("balance", money(data.balance_cents));
+      setText("income", money(data.income_cents));
+      setText("expense", money(data.expense_cents));
+      setText("result", money(data.result_cents));
+
+      const result = document.getElementById("result");
+
+      result.classList.toggle("positive", data.result_cents > 0);
+      result.classList.toggle("negative", data.result_cents < 0);
+
+      setText(
+        "savings-note",
+        data.savings_rate === null
+          ? "Sem receitas realizadas neste mês"
+          : `${percent.format(data.savings_rate)}% das receitas retidas`
+      );
+
+      setText("pending-income", money(data.pending_income_cents));
+      setText("pending-expense", money(data.pending_expense_cents));
+      setText("overdue-expense", money(data.overdue_expense_cents));
+
+      let insight;
+
+      if (!data.income_cents && !data.expense_cents) {
+        insight = (
+          "Registre suas movimentações para começar a " +
+          "acompanhar o resultado do mês."
+        );
+      } else if (data.result_cents < 0) {
+        insight = (
+          `As despesas realizadas superaram as receitas em ` +
+          `${money(Math.abs(data.result_cents))}. ` +
+          "Revise seu planejamento."
+        );
+      } else {
+        insight = (
+          `O resultado realizado deste mês é ` +
+          `${money(data.result_cents)}. ` +
+          "Considere seus compromissos antes de definir o destino desse valor."
+        );
+      }
+
+      setText("month-insight", insight);
+
+      renderChart(data.chart);
+      renderGoals(data.goals);
+      renderBudgets(data.budgets);
+      renderRecent(data.recent);
+    }
+
+    function syncStatus(text, ok) {
+      setText("sync-text", text);
+
+      document.getElementById("sync-dot").style.background = ok
+        ? "var(--success)"
+        : "var(--warning)";
+    }
+
+    function schedule() {
+      window.clearTimeout(timer);
+
+      if (!stopped && !document.hidden) {
+        timer = window.setTimeout(refresh, 5000);
+      }
+    }
+
+    async function refresh() {
+      if (stopped || loading || document.hidden) {
+        return;
+      }
+
+      if (!navigator.onLine) {
+        syncStatus("Sem conexão. Exibindo os últimos dados.", false);
+        schedule();
+        return;
+      }
+
+      loading = true;
+
+      const controller = new AbortController();
+      const timeout = window.setTimeout(
+        () => controller.abort(),
+        10000
+      );
+
+      try {
+        const response = await fetch(apiUrl, {
+          credentials: "same-origin",
+          cache: "no-store",
+          headers: {
+            "Accept": "application/json"
+          },
+          signal: controller.signal
+        });
+
+        if (response.redirected || response.status === 401) {
+          stopped = true;
+
+          syncStatus("Sessão encerrada. Entre novamente.", false);
+          window.location.assign(loginUrl);
+
+          return;
+        }
+
+        if (!response.ok) {
+          throw new Error("Não foi possível atualizar.");
+        }
+
+        const data = await response.json();
+
+        // Outra aba pode ter trocado o espaço ativo da sessão.
+        // Recarrega também o cabeçalho para manter tudo coerente.
+        if (data.workspace_id !== expectedWorkspace) {
+          stopped = true;
+          window.location.assign(dashboardUrl);
+          return;
+        }
+
+        if (data.revision !== lastRevision) {
+          render(data);
+          lastRevision = data.revision;
+        } else {
+          // Vencimentos podem mudar com a passagem do dia,
+          // mesmo quando ninguém altera um lançamento.
+          setText(
+            "overdue-expense",
+            money(data.overdue_expense_cents)
+          );
+        }
+
+        const checkedAt = new Intl.DateTimeFormat("pt-BR", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit"
+        }).format(new Date());
+
+        syncStatus(`Conferido às ${checkedAt} · atualização automática`, true);
+
+      } catch (error) {
+        syncStatus(
+          "Atualização indisponível. Tentando novamente…",
+          false
+        );
+
+      } finally {
+        window.clearTimeout(timeout);
+        loading = false;
+        schedule();
+      }
+    }
+
+    document.addEventListener("visibilitychange", () => {
+      window.clearTimeout(timer);
+
+      if (!document.hidden) {
+        refresh();
+      }
+    });
+
+    window.addEventListener("online", refresh);
+
+    window.addEventListener("offline", () => {
+      syncStatus("Sem conexão. Exibindo os últimos dados.", false);
+    });
+
+    window.addEventListener("pageshow", refresh);
+
+    render(initialData);
+    refresh();
+  })();
+</script>
+{% endblock %}
