@@ -20,10 +20,19 @@ from flask_login import (
     login_required,
     logout_user,
 )
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from forms import ActionForm
-from models import User, Workspace, db
+from models import (
+    Account,
+    Budget,
+    Goal,
+    Transaction,
+    User,
+    Workspace,
+    db,
+)
 
 
 TIMEZONE = ZoneInfo("America/Sao_Paulo")
@@ -56,7 +65,6 @@ class Subscription(db.Model):
         primary_key=True,
     )
 
-    # Primeiro dia em que o acesso deixa de valer.
     expires_on = db.Column(
         db.Date,
         nullable=False,
@@ -226,6 +234,77 @@ def admin_snapshot():
     }
 
 
+def delete_client_records(user):
+    """
+    Exclui os dados do cliente na ordem das dependências.
+
+    Não confirma a transação aqui.
+    A rota faz um único commit no final.
+    """
+
+    # Protege contas que tenham sido usadas para administrar
+    # assinaturas de outras pessoas no passado.
+    granted_to_others = db.session.scalar(
+        select(Subscription.user_id)
+        .where(
+            Subscription.granted_by == user.id,
+            Subscription.user_id != user.id,
+        )
+        .limit(1)
+    )
+
+    if granted_to_others is not None:
+        raise ValueError(
+            "Essa conta possui vínculos de administração "
+            "com outras assinaturas. Use o bloqueio."
+        )
+
+    # Bloqueia os espaços durante a exclusão no PostgreSQL.
+    workspace_ids = list(
+        db.session.scalars(
+            select(Workspace.id)
+            .where(Workspace.user_id == user.id)
+            .order_by(Workspace.id)
+            .with_for_update()
+        ).all()
+    )
+
+    if workspace_ids:
+        # Lançamentos devem sair antes das contas,
+        # pois possuem uma chave estrangeira composta.
+        for model in (
+            Transaction,
+            Budget,
+            Goal,
+            Account,
+        ):
+            db.session.execute(
+                delete(model)
+                .where(model.workspace_id.in_(workspace_ids))
+                .execution_options(synchronize_session=False)
+            )
+
+        db.session.execute(
+            delete(Workspace)
+            .where(Workspace.user_id == user.id)
+            .execution_options(synchronize_session=False)
+        )
+
+    db.session.execute(
+        delete(Subscription)
+        .where(Subscription.user_id == user.id)
+        .execution_options(synchronize_session=False)
+    )
+
+    db.session.execute(
+        delete(AccessBlock)
+        .where(AccessBlock.user_id == user.id)
+        .execution_options(synchronize_session=False)
+    )
+
+    db.session.delete(user)
+
+
 # --------------------------------------------------
 # INTEGRAÇÃO COM O APLICATIVO
 # --------------------------------------------------
@@ -278,7 +357,6 @@ def init_admin(app):
         if endpoint is None:
             return None
 
-        # Rotas necessárias enquanto o cliente aguarda.
         allowed_endpoints = {
             "plan",
             "plan_status",
@@ -291,7 +369,6 @@ def init_admin(app):
         if endpoint in allowed_endpoints:
             return None
 
-        # Essas rotas têm sua própria verificação de dono.
         if endpoint in {
             "admin_panel",
             "admin_status",
@@ -315,11 +392,10 @@ def init_admin(app):
                 "plan_url": url_for("plan"),
             }, 403)
 
-        # Nenhuma alteração financeira é executada.
         return redirect(url_for("plan"), code=303)
 
     # --------------------------------------------------
-    # CONSULTA AUTOMÁTICA DA TELA DO CLIENTE
+    # CONSULTA DA TELA DO CLIENTE
     # --------------------------------------------------
 
     @app.get("/api/plano/status")
@@ -374,7 +450,7 @@ def init_admin(app):
         })
 
     # --------------------------------------------------
-    # IR PARA O LOGIN APÓS A CONFIRMAÇÃO
+    # LOGIN APÓS A CONFIRMAÇÃO
     # --------------------------------------------------
 
     @app.post("/plano/entrar")
@@ -398,9 +474,6 @@ def init_admin(app):
 
             return redirect(url_for("plan"))
 
-        # O cliente já estava identificado para acompanhar
-        # a confirmação. Encerra essa sessão para que ele
-        # faça o login solicitado.
         logout_user()
         session.clear()
 
@@ -464,8 +537,6 @@ def init_admin(app):
                 counts["clients"] += 1
                 counts[status] += 1
 
-            # A assinatura registra a liberação manual.
-            # Não existe consulta ao banco ou ao WhatsApp.
             if status == "admin":
                 payment_status = "exempt"
 
@@ -505,7 +576,7 @@ def init_admin(app):
         })
 
     # --------------------------------------------------
-    # CONFIRMAÇÃO MANUAL E BLOQUEIO
+    # PAGAMENTOS, BLOQUEIO E EXCLUSÃO
     # --------------------------------------------------
 
     @app.post("/administracao/usuarios/<int:user_id>/acesso")
@@ -525,10 +596,10 @@ def init_admin(app):
             "renew",
             "block",
             "unblock",
+            "delete_account",
         }:
             abort(400)
 
-        # Mantém compatibilidade com o painel anterior.
         action = {
             "activate": "confirm_payment",
             "renew": "confirm_renewal",
@@ -543,20 +614,106 @@ def init_admin(app):
         if user is None:
             abort(404)
 
-        if user.email == owner_email():
+        # A proteção acontece no servidor, inclusive se
+        # alguém tentar enviar uma requisição manual.
+        if (
+            user.id == current_user.id
+            or user.email == owner_email()
+        ):
             abort(
                 400,
                 description=(
-                    "A conta do dono é isenta "
-                    "e não pode ser alterada por esta ação."
+                    "A conta do dono não pode ser "
+                    "bloqueada ou excluída por este painel."
                 ),
             )
+
+        # ----------------------------------------------
+        # EXCLUSÃO DEFINITIVA
+        # ----------------------------------------------
+
+        if action == "delete_account":
+            confirmation_email = request.form.get(
+                "confirmation_email", ""
+            ).strip().lower()
+
+            if confirmation_email != user.email.strip().lower():
+                db.session.rollback()
+
+                flash(
+                    "Exclusão cancelada. Digite exatamente "
+                    "o e-mail do cliente para confirmar.",
+                    "error",
+                )
+
+                return redirect(url_for("admin_panel"))
+
+            deleted_user_id = user.id
+
+            try:
+                delete_client_records(user)
+
+                # Um único commit: se alguma exclusão falhar,
+                # nenhuma das alterações será confirmada.
+                db.session.commit()
+
+            except ValueError as error:
+                db.session.rollback()
+                flash(str(error), "error")
+
+                return redirect(url_for("admin_panel"))
+
+            except IntegrityError:
+                db.session.rollback()
+
+                app.logger.exception(
+                    "Vínculo de banco impediu a exclusão "
+                    "do usuário %s.",
+                    deleted_user_id,
+                )
+
+                flash(
+                    "A conta não foi excluída porque há "
+                    "registros vinculados que precisam ser "
+                    "verificados. Nenhuma exclusão foi salva.",
+                    "error",
+                )
+
+                return redirect(url_for("admin_panel"))
+
+            except SQLAlchemyError:
+                db.session.rollback()
+
+                app.logger.exception(
+                    "Erro ao excluir usuário %s.",
+                    deleted_user_id,
+                )
+
+                flash(
+                    "Não foi possível concluir a exclusão. "
+                    "Nenhuma exclusão foi salva.",
+                    "error",
+                )
+
+                return redirect(url_for("admin_panel"))
+
+            flash(
+                "Conta e dados financeiros do cliente "
+                "excluídos definitivamente.",
+                "success",
+            )
+
+            return redirect(url_for("admin_panel"))
 
         block = db.session.get(AccessBlock, user.id)
         subscription = db.session.get(
             Subscription,
             user.id,
         )
+
+        # ----------------------------------------------
+        # BLOQUEIO
+        # ----------------------------------------------
 
         if action == "block":
             if block is None:
@@ -574,9 +731,10 @@ def init_admin(app):
 
             return redirect(url_for("admin_panel"))
 
-        # O desbloqueio não confirma um novo pagamento.
-        # Se não houver plano vigente, o cliente continua
-        # aguardando confirmação ou renovação.
+        # ----------------------------------------------
+        # DESBLOQUEIO
+        # ----------------------------------------------
+
         if action == "unblock":
             if block is not None:
                 db.session.delete(block)
@@ -591,12 +749,13 @@ def init_admin(app):
 
             return redirect(url_for("admin_panel"))
 
+        # ----------------------------------------------
+        # CONFIRMAÇÃO E RENOVAÇÃO
+        # ----------------------------------------------
+
         current_date = today_br()
 
         if action == "confirm_renewal":
-            # A próxima tela enviará o vencimento que
-            # o administrador estava vendo.
-            # Isso evita renovar duas vezes pelo mesmo envio.
             expected_expiration = request.form.get(
                 "expected_expires_on"
             )
@@ -640,8 +799,6 @@ def init_admin(app):
             expiration = add_one_month(base_date)
 
         else:
-            # Repetir a confirmação inicial de um plano
-            # vigente não acrescenta outro mês.
             if (
                 subscription is not None
                 and subscription.expires_on > current_date
