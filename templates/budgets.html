@@ -1,0 +1,381 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-heading">
+  <div>
+    <h1>Planejamento mensal</h1>
+
+    <p class="muted small">
+      Defina limites e acompanhe suas despesas por categoria.
+    </p>
+  </div>
+
+  <form
+    method="GET"
+    action="{{ url_for('budgets') }}"
+    class="actions"
+  >
+    <div>
+      <label for="budget-month" class="small muted">
+        Mês de referência
+      </label>
+
+      <input
+        type="month"
+        id="budget-month"
+        name="month"
+        value="{{ month }}"
+        min="1900-01"
+        max="9998-12"
+        required
+        style="margin-top: 5px;"
+      >
+    </div>
+
+    <button
+      type="submit"
+      class="btn btn-secondary"
+      style="align-self: flex-end;"
+    >
+      Ver mês
+    </button>
+  </form>
+</div>
+
+{% set totals = namespace(limit=0, spent=0, exceeded=0) %}
+
+{% for item in items %}
+  {% set totals.limit = totals.limit + item.limit_cents %}
+  {% set totals.spent = totals.spent + item.spent_cents %}
+
+  {% if item.spent_cents > item.limit_cents %}
+    {% set totals.exceeded = totals.exceeded + 1 %}
+  {% endif %}
+{% endfor %}
+
+<div class="cards">
+  <section class="stat-card primary">
+    <div class="stat-label">Limites definidos</div>
+
+    <strong class="stat-value">
+      {{ totals.limit | brl }}
+    </strong>
+
+    <div class="stat-note">
+      Soma das categorias planejadas
+    </div>
+  </section>
+
+  <section class="stat-card">
+    <div class="stat-label">Gasto nas categorias planejadas</div>
+
+    <strong class="stat-value">
+      {{ totals.spent | brl }}
+    </strong>
+
+    <div class="stat-note">
+      Apenas despesas realizadas
+    </div>
+  </section>
+
+  <section class="stat-card">
+    <div class="stat-label">Diferença entre limites e gastos</div>
+
+    <strong
+      class="stat-value {{ 'negative' if totals.spent > totals.limit else 'positive' }}"
+    >
+      {{ (totals.limit - totals.spent) | brl }}
+    </strong>
+
+    <div class="stat-note">
+      Não representa saldo disponível em conta
+    </div>
+  </section>
+
+  <section class="stat-card">
+    <div class="stat-label">Categorias acima do limite</div>
+
+    <strong
+      class="stat-value {% if totals.exceeded %}negative{% endif %}"
+    >
+      {{ totals.exceeded }}
+    </strong>
+
+    <div class="stat-note">
+      De {{ items | length }} categorias planejadas
+    </div>
+  </section>
+</div>
+
+<div class="grid-2">
+  <section class="panel">
+    <div class="panel-heading">
+      <div>
+        <h2>Seus limites por categoria</h2>
+
+        <p>
+          Planejamento de {{ month[5:7] }}/{{ month[:4] }}
+        </p>
+      </div>
+
+      <span class="badge badge-primary">
+        Mensal
+      </span>
+    </div>
+
+    {% if items %}
+      {% for item in items %}
+        {% set percentage = (
+          item.spent_cents / item.limit_cents * 100
+        ) %}
+
+        {% set exceeded = item.spent_cents > item.limit_cents %}
+
+        <div class="goal-item">
+          <div
+            class="row-between"
+            style="align-items: flex-start; margin-bottom: 14px;"
+          >
+            <div>
+              <h3>{{ item.category }}</h3>
+
+              <p class="small muted" style="margin-top: 5px;">
+                {{ item.spent_cents | brl }}
+                de
+                {{ item.limit_cents | brl }}
+              </p>
+            </div>
+
+            <span
+              class="badge {{ 'badge-danger' if exceeded else 'badge-success' }}"
+            >
+              {{ '%.1f' | format(percentage) | replace('.', ',') }}%
+              utilizado
+            </span>
+          </div>
+
+          <div
+            class="progress"
+            role="progressbar"
+            aria-label="Limite utilizado em {{ item.category }}"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            aria-valuenow="{{ [percentage, 100] | min }}"
+            aria-valuetext="{{ item.spent_cents | brl }} de {{ item.limit_cents | brl }}{% if exceeded %}, limite excedido{% endif %}"
+          >
+            <div
+              class="progress-bar"
+              style="
+                width: {{ [percentage, 100] | min }}%;
+                {% if exceeded %}
+                  background: var(--danger);
+                {% endif %}
+              "
+            ></div>
+          </div>
+
+          <div
+            class="row-between"
+            style="margin-top: 12px; flex-wrap: wrap;"
+          >
+            <p
+              class="small {{ 'negative' if exceeded else 'muted' }}"
+            >
+              {% if exceeded %}
+                Limite excedido em
+                <strong>
+                  {{ (item.spent_cents - item.limit_cents) | brl }}
+                </strong>
+              {% else %}
+                Restam
+                <strong>
+                  {{ (item.limit_cents - item.spent_cents) | brl }}
+                </strong>
+                dentro do limite.
+              {% endif %}
+            </p>
+
+            <div class="actions">
+              <button
+                type="button"
+                class="btn btn-soft btn-sm"
+                data-edit-budget
+                data-category="{{ item.category }}"
+                data-limit="{{ item.limit_cents }}"
+              >
+                Ajustar
+              </button>
+
+              <form
+                method="POST"
+                action="{{ url_for('delete_budget', budget_id=item.id) }}"
+                class="inline-form"
+                data-delete-budget
+              >
+                {{ action_form.hidden_tag() }}
+
+                <button
+                  type="submit"
+                  class="btn btn-danger btn-sm"
+                  aria-label="Remover limite de {{ item.category }}"
+                >
+                  Remover
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+
+    {% else %}
+      <div class="empty-state">
+        <h3>Dê um plano para seus gastos.</h3>
+
+        <p>
+          Escolha uma categoria e defina quanto pretende
+          gastar neste mês.
+        </p>
+      </div>
+    {% endif %}
+  </section>
+
+  <div>
+    <section class="panel" id="budget-editor">
+      <div class="panel-heading">
+        <div>
+          <h2>Definir ou ajustar limite</h2>
+
+          <p>
+            Válido para {{ month[5:7] }}/{{ month[:4] }}
+          </p>
+        </div>
+      </div>
+
+      <form
+        method="POST"
+        action="{{ url_for('budgets', month=month) }}"
+      >
+        {{ form.hidden_tag() }}
+
+        {% if form.csrf_token.errors %}
+          <div class="alert alert-error" role="alert">
+            Sua sessão expirou.
+            Atualize a página e tente novamente.
+          </div>
+        {% endif %}
+
+        <div class="field">
+          {{ form.category.label }}
+
+          {{ form.category(
+            aria_describedby="category-errors",
+            aria_invalid="true" if form.category.errors else "false"
+          ) }}
+
+          <div id="category-errors">
+            {% if form.category.errors %}
+              <ul class="field-errors">
+                {% for error in form.category.errors %}
+                  <li>{{ error }}</li>
+                {% endfor %}
+              </ul>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="field">
+          {{ form.limit.label }}
+
+          {{ form.limit(
+            inputmode="decimal",
+            placeholder="Ex.: 800.00",
+            aria_describedby="limit-help limit-errors",
+            aria_invalid="true" if form.limit.errors else "false"
+          ) }}
+
+          <p class="field-help" id="limit-help">
+            Use ponto nos centavos.
+            Se a categoria já tiver limite neste mês,
+            o valor será substituído.
+          </p>
+
+          <div id="limit-errors">
+            {% if form.limit.errors %}
+              <ul class="field-errors">
+                {% for error in form.limit.errors %}
+                  <li>{{ error }}</li>
+                {% endfor %}
+              </ul>
+            {% endif %}
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-block">
+          {{ form.submit.label.text }}
+        </button>
+      </form>
+    </section>
+
+    <div class="info-box">
+      <strong>Como os gastos são calculados?</strong>
+      <br>
+      Entram neste planejamento somente as despesas
+      realizadas na categoria, pela data efetiva do pagamento.
+      Contas pendentes ainda não consomem o limite.
+      <br><br>
+      Categorias sem limite não entram nos indicadores
+      desta tela. Remover um limite preserva os lançamentos.
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (() => {
+    const category = document.getElementById(
+      {{ form.category.id | tojson }}
+    );
+
+    const limit = document.getElementById(
+      {{ form.limit.id | tojson }}
+    );
+
+    const editor = document.getElementById("budget-editor");
+
+    document.querySelectorAll("[data-edit-budget]")
+      .forEach((button) => {
+        button.addEventListener("click", () => {
+          category.value = button.dataset.category;
+
+          limit.value = (
+            Number(button.dataset.limit) / 100
+          ).toFixed(2);
+
+          editor.scrollIntoView({
+            behavior: window.matchMedia(
+              "(prefers-reduced-motion: reduce)"
+            ).matches ? "auto" : "smooth",
+            block: "center"
+          });
+
+          limit.focus({ preventScroll: true });
+        });
+      });
+
+    document.querySelectorAll("[data-delete-budget]")
+      .forEach((form) => {
+        form.addEventListener("submit", (event) => {
+          const confirmed = window.confirm(
+            "Remover este limite mensal? " +
+            "Os lançamentos serão preservados."
+          );
+
+          if (!confirmed) {
+            event.preventDefault();
+          }
+        });
+      });
+  })();
+</script>
+{% endblock %}
