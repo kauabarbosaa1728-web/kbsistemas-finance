@@ -1,12 +1,59 @@
 {% extends "base.html" %}
 
+{% macro access_button(user, action, label, button_class, confirmation) %}
+  <form
+    method="POST"
+    action="{{ url_for('admin_set_access', user_id=user.id) }}"
+    class="inline-form"
+    data-access-form
+    data-confirm="{{ confirmation }}"
+  >
+    {{ action_form.hidden_tag() }}
+
+    <input type="hidden" name="action" value="{{ action }}">
+
+    <button
+      type="submit"
+      class="btn btn-sm {{ button_class }}"
+    >
+      {{ label }}
+    </button>
+  </form>
+{% endmacro %}
+
 {% block content %}
+{% set counts = namespace(
+  clients=0,
+  active=0,
+  pending=0,
+  expired=0,
+  blocked=0
+) %}
+
+{% for user in users %}
+  {% set status = access_statuses.get(user.id, 'pending') %}
+
+  {% if status != 'admin' %}
+    {% set counts.clients = counts.clients + 1 %}
+
+    {% if status == 'active' %}
+      {% set counts.active = counts.active + 1 %}
+    {% elif status == 'pending' %}
+      {% set counts.pending = counts.pending + 1 %}
+    {% elif status == 'expired' %}
+      {% set counts.expired = counts.expired + 1 %}
+    {% elif status == 'blocked' %}
+      {% set counts.blocked = counts.blocked + 1 %}
+    {% endif %}
+  {% endif %}
+{% endfor %}
+
 <div class="page-heading">
   <div>
     <h1>Administração</h1>
 
     <p class="muted small">
-      Gerencie os clientes e os acessos da KBSistemas Finance.
+      Gerencie clientes e libere os acessos combinados pelo WhatsApp.
     </p>
   </div>
 
@@ -15,37 +62,72 @@
   </span>
 </div>
 
-<div class="grid-equal">
-  <section class="panel">
-    <p class="stat-label">Contas cadastradas</p>
+<div class="cards">
+  <section class="stat-card primary">
+    <div class="stat-label">Clientes cadastrados</div>
 
     <strong class="stat-value">
-      {{ users | length }}
+      {{ counts.clients }}
     </strong>
 
-    <p class="small muted">
-      Inclui sua conta de administrador.
-    </p>
+    <div class="stat-note">
+      Não inclui sua conta de administrador
+    </div>
   </section>
 
-  <section class="panel">
-    <p class="stat-label">Contas bloqueadas</p>
+  <section class="stat-card">
+    <div class="stat-label">Planos ativos</div>
+
+    <strong class="stat-value positive">
+      {{ counts.active }}
+    </strong>
+
+    <div class="stat-note">
+      Clientes com acesso liberado e vigente
+    </div>
+  </section>
+
+  <section class="stat-card">
+    <div class="stat-label">Aguardando liberação</div>
+
+    <strong class="stat-value">
+      {{ counts.pending }}
+    </strong>
+
+    <div class="stat-note">
+      Cadastros ainda sem plano liberado
+    </div>
+  </section>
+
+  <section class="stat-card">
+    <div class="stat-label">Vencidos ou bloqueados</div>
 
     <strong class="stat-value negative">
-      {{ blocked_ids | length }}
+      {{ counts.expired + counts.blocked }}
     </strong>
 
-    <p class="small muted">
-      Acesso impedido até a liberação.
-    </p>
+    <div class="stat-note">
+      {{ counts.expired }} vencidos ·
+      {{ counts.blocked }} bloqueados
+    </div>
   </section>
+</div>
+
+<div class="info-box" style="margin-bottom: 22px;">
+  <strong>Plano Completo — R$ 59,90/mês</strong>
+  <br>
+  O cliente combina o pagamento diretamente com você
+  pelo WhatsApp. Após conferir o recebimento,
+  use <strong>Liberar 1 mês</strong> ou
+  <strong>Renovar +1 mês</strong>.
+  O sistema não verifica pagamentos automaticamente.
 </div>
 
 <section class="panel">
   <div class="panel-heading">
     <div>
       <h2>Clientes e usuários</h2>
-      <p>Dados cadastrais e situação de acesso</p>
+      <p>Identificação, situação de acesso e vencimento</p>
     </div>
   </div>
 
@@ -53,22 +135,31 @@
     <table>
       <thead>
         <tr>
-          <th>Nome</th>
+          <th>Cliente</th>
           <th>E-mail</th>
           <th>Cadastro</th>
           <th>Espaços</th>
           <th>Situação</th>
-          <th class="text-right">Ação</th>
+          <th>Vencimento</th>
+          <th class="text-right">Ações</th>
         </tr>
       </thead>
 
       <tbody>
         {% for user in users %}
-          {% set blocked = user.id in blocked_ids %}
+          {% set status = access_statuses.get(user.id, 'pending') %}
+          {% set subscription = subscriptions.get(user.id) %}
 
           <tr>
-            <td>
+            <td style="min-width: 160px;">
               <strong>{{ user.name }}</strong>
+
+              <div
+                class="muted"
+                style="margin-top: 4px; font-size: 10px;"
+              >
+                Código #{{ user.id }}
+              </div>
             </td>
 
             <td>{{ user.email }}</td>
@@ -82,51 +173,103 @@
             </td>
 
             <td>
-              {% if user.id == current_user.id %}
+              {% if status == 'admin' %}
                 <span class="badge badge-primary">
                   Administrador
                 </span>
 
-              {% elif blocked %}
+              {% elif status == 'active' %}
+                <span class="badge badge-success">
+                  Ativo
+                </span>
+
+              {% elif status == 'pending' %}
+                <span class="badge badge-warning">
+                  Aguardando liberação
+                </span>
+
+              {% elif status == 'expired' %}
                 <span class="badge badge-danger">
-                  Bloqueado
+                  Vencido
                 </span>
 
               {% else %}
-                <span class="badge badge-success">
-                  Liberado
+                <span class="badge badge-danger">
+                  Bloqueado
                 </span>
               {% endif %}
             </td>
 
-            <td class="text-right">
-              {% if user.id != current_user.id %}
-                <form
-                  method="POST"
-                  action="{{ url_for('admin_set_access', user_id=user.id) }}"
-                  class="inline-form"
-                  data-access-form
+            <td class="nowrap">
+              {% if status == 'admin' %}
+                <span class="muted">Isento</span>
+
+              {% elif subscription %}
+                <strong>
+                  {{ subscription.expires_on | date_br }}
+                </strong>
+
+                <div
+                  class="muted"
+                  style="margin-top: 4px; font-size: 10px;"
                 >
-                  {{ action_form.hidden_tag() }}
-
-                  <input
-                    type="hidden"
-                    name="action"
-                    value="{{ 'unblock' if blocked else 'block' }}"
-                  >
-
-                  <button
-                    type="submit"
-                    class="btn btn-sm {{ 'btn-soft' if blocked else 'btn-danger' }}"
-                  >
-                    {{ 'Liberar acesso' if blocked else 'Bloquear acesso' }}
-                  </button>
-                </form>
+                  Acesso expira nesta data
+                </div>
 
               {% else %}
+                <span class="muted">Ainda não liberado</span>
+              {% endif %}
+            </td>
+
+            <td class="text-right" style="min-width: 240px;">
+              {% if status == 'admin' %}
                 <span class="small muted">
-                  Sua conta
+                  Sua conta · acesso isento
                 </span>
+
+              {% else %}
+                <div
+                  class="actions"
+                  style="justify-content: flex-end;"
+                >
+                  {% if status == 'active' %}
+                    {{ access_button(
+                      user,
+                      'renew',
+                      'Renovar +1 mês',
+                      'btn-soft',
+                      'Você conferiu o pagamento? Esta ação acrescenta um mês ao vencimento atual. Confirmar renovação?'
+                    ) }}
+
+                  {% elif status == 'blocked' %}
+                    {{ access_button(
+                      user,
+                      'unblock',
+                      'Desbloquear / liberar',
+                      'btn-soft',
+                      'Liberar este cliente? Se a assinatura ainda estiver vigente, o vencimento será mantido. Caso contrário, será liberado um mês a partir de hoje.'
+                    ) }}
+
+                  {% else %}
+                    {{ access_button(
+                      user,
+                      'activate',
+                      'Liberar 1 mês',
+                      'btn-soft',
+                      'Você conferiu o pagamento? Confirmar a liberação de um mês a partir de hoje?'
+                    ) }}
+                  {% endif %}
+
+                  {% if status != 'blocked' %}
+                    {{ access_button(
+                      user,
+                      'block',
+                      'Bloquear',
+                      'btn-danger',
+                      'Bloquear o acesso deste cliente? Os dados e o vencimento serão preservados. O prazo da assinatura continuará correndo.'
+                    ) }}
+                  {% endif %}
+                </div>
               {% endif %}
             </td>
           </tr>
@@ -136,24 +279,65 @@
   </div>
 </section>
 
-<div class="info-box">
-  <strong>Privacidade dos clientes</strong>
-  <br>
-  Este painel administra os acessos. Ele não exibe
-  saldos, lançamentos ou metas financeiras dos clientes.
-  Bloquear um acesso preserva os dados cadastrados.
+<div class="grid-equal">
+  <section class="panel">
+    <h2>Liberação e renovação</h2>
+
+    <p class="small muted" style="margin-top: 12px;">
+      Liberar concede um mês a partir de hoje quando
+      não existe um plano vigente. Renovar acrescenta
+      um mês ao vencimento atual quando ele ainda está
+      no futuro.
+    </p>
+
+    <p class="small muted" style="margin-top: 12px;">
+      O acesso deixa de valer no início da data de
+      vencimento, pelo horário de Brasília.
+      Sem renovação, o cliente volta à página do plano.
+    </p>
+
+    <p class="small muted" style="margin-top: 12px;">
+      Cada confirmação de renovação acrescenta um mês.
+      Confirme apenas uma vez para cada mês contratado.
+    </p>
+  </section>
+
+  <section class="panel">
+    <h2>Dados preservados</h2>
+
+    <p class="small muted" style="margin-top: 12px;">
+      Bloquear ou deixar um plano vencer não apaga
+      os lançamentos, contas ou metas do cliente.
+      Ao liberar novamente, os dados continuam disponíveis.
+    </p>
+
+    <p class="small muted" style="margin-top: 12px;">
+      Este painel mostra dados cadastrais e de acesso.
+      Os registros financeiros dos clientes continuam privados.
+    </p>
+  </section>
 </div>
+
+<p class="small muted">
+  Informações consultadas ao abrir esta página.
+  Atualize a página para conferir novos cadastros.
+</p>
 {% endblock %}
 
 {% block scripts %}
 <script>
-  document.querySelectorAll("[data-access-form]")
-    .forEach((form) => {
-      form.addEventListener("submit", (event) => {
-        if (!window.confirm("Confirmar a alteração de acesso?")) {
-          event.preventDefault();
-        }
+  (() => {
+    document.querySelectorAll("[data-access-form]")
+      .forEach((form) => {
+        form.addEventListener("submit", (event) => {
+          const message = form.dataset.confirm
+            || "Confirmar alteração de acesso?";
+
+          if (!window.confirm(message)) {
+            event.preventDefault();
+          }
+        });
       });
-    });
+  })();
 </script>
 {% endblock %}
