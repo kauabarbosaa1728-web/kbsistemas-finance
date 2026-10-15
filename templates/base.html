@@ -8,10 +8,7 @@
     content="width=device-width, initial-scale=1"
   >
 
-  <meta
-    name="csrf-token"
-    content="{{ csrf_token() }}"
-  >
+  <meta name="csrf-token" content="{{ csrf_token() }}">
 
   <title>
     {{ title | default('Painel') }} · KBSistemas Finance
@@ -22,23 +19,17 @@
       --primary: #2563eb;
       --primary-dark: #1d4ed8;
       --primary-light: #eff6ff;
-
       --background: #f4f7fc;
       --surface: #ffffff;
-
       --text: #172b4d;
       --muted: #718096;
       --border: #e5ebf3;
-
       --success: #059669;
       --success-light: #ecfdf5;
-
       --danger: #dc3545;
       --danger-light: #fff1f2;
-
       --warning: #b7791f;
       --warning-light: #fffbeb;
-
       --radius: 16px;
       --shadow: 0 4px 24px rgba(23, 43, 77, 0.04);
     }
@@ -49,8 +40,7 @@
 
     body {
       margin: 0;
-      font-family:
-        Inter, -apple-system, BlinkMacSystemFont,
+      font-family: Inter, -apple-system, BlinkMacSystemFont,
         "Segoe UI", sans-serif;
       background: var(--background);
       color: var(--text);
@@ -73,19 +63,6 @@
       font: inherit;
     }
 
-    button,
-    a,
-    input,
-    select,
-    textarea {
-      -webkit-tap-highlight-color: transparent;
-    }
-
-    :focus-visible {
-      outline: 3px solid #93c5fd;
-      outline-offset: 3px;
-    }
-
     button {
       cursor: pointer;
     }
@@ -95,6 +72,15 @@
       cursor: wait;
     }
 
+    :focus-visible {
+      outline: 3px solid #93c5fd;
+      outline-offset: 3px;
+    }
+
+    [hidden] {
+      display: none !important;
+    }
+
     .sidebar {
       position: fixed;
       inset: 0 auto 0 0;
@@ -102,10 +88,8 @@
       padding: 30px 20px;
       background: var(--surface);
       border-right: 1px solid var(--border);
-
       display: flex;
       flex-direction: column;
-
       overflow-y: auto;
       z-index: 40;
     }
@@ -114,9 +98,7 @@
       display: flex;
       align-items: center;
       gap: 12px;
-
       color: var(--text);
-      text-decoration: none;
       padding: 0 10px 28px;
     }
 
@@ -127,15 +109,12 @@
     .brand-symbol {
       display: grid;
       place-items: center;
-
       flex-shrink: 0;
       width: 44px;
       height: 44px;
-
       border-radius: 13px;
       background: var(--primary);
       color: white;
-
       font-size: 19px;
       font-weight: 800;
       letter-spacing: -1px;
@@ -161,7 +140,6 @@
       font-size: 10px;
       font-weight: 700;
       letter-spacing: 1.5px;
-
       margin: 14px 14px 10px;
     }
 
@@ -169,18 +147,12 @@
       display: flex;
       align-items: center;
       gap: 12px;
-
       padding: 13px 15px;
       margin: 5px 0;
-
       border-radius: 10px;
       color: #66758d;
       font-size: 14px;
       font-weight: 500;
-
-      transition:
-        background 0.15s,
-        color 0.15s;
     }
 
     .nav-link:hover,
@@ -198,7 +170,6 @@
       width: 20px;
       height: 20px;
       flex-shrink: 0;
-
       fill: none;
       stroke: currentColor;
       stroke-width: 1.7;
@@ -227,10 +198,8 @@
     .topbar {
       min-height: 82px;
       padding: 16px 36px;
-
       background: var(--surface);
       border-bottom: 1px solid var(--border);
-
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -238,10 +207,11 @@
     }
 
     .topbar-left,
-    .topbar-right {
+    .topbar-right,
+    .profile {
       display: flex;
       align-items: center;
-      gap: 14px;
+      gap: 12px;
     }
 
     .workspace-name {
@@ -254,20 +224,12 @@
       font-size: 11px;
     }
 
-    .profile {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
     .avatar {
       width: 38px;
       height: 38px;
       border-radius: 50%;
-
       display: grid;
       place-items: center;
-
       background: var(--primary-light);
       color: var(--primary);
       font-weight: 800;
@@ -278,7 +240,6 @@
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-
       font-size: 12px;
       font-weight: 600;
     }
@@ -290,11 +251,9 @@
     .workspace-switcher > summary {
       cursor: pointer;
       list-style: none;
-
       padding: 9px 12px;
       border: 1px solid var(--border);
       border-radius: 9px;
-
       font-size: 12px;
       background: white;
     }
@@ -307,10 +266,8 @@
       position: absolute;
       top: calc(100% + 8px);
       right: 0;
-
       width: 230px;
       padding: 8px;
-
       background: white;
       border: 1px solid var(--border);
       border-radius: 12px;
@@ -321,12 +278,10 @@
     .workspace-options button {
       width: 100%;
       padding: 11px 12px;
-
       border: 0;
       border-radius: 8px;
       background: white;
       color: var(--text);
-
       text-align: left;
       font-size: 13px;
     }
@@ -348,7 +303,6 @@
       align-items: center;
       justify-content: space-between;
       gap: 18px;
-
       margin-bottom: 26px;
     }
 
@@ -394,20 +348,14 @@
       align-items: center;
       justify-content: center;
       gap: 8px;
-
       padding: 11px 17px;
-
       border: 1px solid transparent;
       border-radius: 9px;
-
       background: var(--primary);
       color: white;
-
       font-size: 13px;
       font-weight: 600;
       text-decoration: none;
-
-      transition: background 0.15s;
     }
 
     .btn:hover {
@@ -459,10 +407,8 @@
     .icon-button {
       display: inline-grid;
       place-items: center;
-
       width: 36px;
       height: 36px;
-
       border: 1px solid var(--border);
       border-radius: 9px;
       background: white;
@@ -486,11 +432,11 @@
       border: 1px solid var(--border);
       border-radius: var(--radius);
       box-shadow: var(--shadow);
+      min-width: 0;
     }
 
     .stat-card {
       padding: 23px;
-      min-width: 0;
     }
 
     .stat-label {
@@ -502,12 +448,10 @@
     .stat-value {
       display: block;
       margin: 15px 0 8px;
-
       font-size: clamp(23px, 2.1vw, 30px);
       line-height: 1.2;
       font-weight: 800;
       letter-spacing: -1px;
-
       overflow-wrap: anywhere;
     }
 
@@ -537,7 +481,6 @@
 
     .panel {
       padding: 24px;
-      min-width: 0;
       margin-bottom: 22px;
     }
 
@@ -684,14 +627,11 @@
     textarea {
       display: block;
       width: 100%;
-
       padding: 11px 12px;
-
       border: 1px solid #dce4ef;
       border-radius: 9px;
       background: white;
       color: var(--text);
-
       font-size: 13px;
     }
 
@@ -721,7 +661,6 @@
       display: flex;
       justify-content: flex-end;
       gap: 10px;
-
       padding-top: 20px;
       margin-top: 24px;
       border-top: 1px solid var(--border);
@@ -737,13 +676,10 @@
       align-items: start;
       justify-content: space-between;
       gap: 15px;
-
       padding: 14px 17px;
       margin-bottom: 18px;
-
       border: 1px solid #bfdbfe;
       border-radius: 10px;
-
       background: var(--primary-light);
       color: #1e40af;
       font-size: 13px;
@@ -810,10 +746,8 @@
     .info-box {
       background: var(--primary-light);
       color: #315b9c;
-
       border-radius: 11px;
       padding: 16px;
-
       font-size: 12px;
       line-height: 1.7;
     }
@@ -823,7 +757,6 @@
       justify-content: space-between;
       align-items: center;
       gap: 15px;
-
       margin-top: 22px;
       font-size: 12px;
     }
@@ -832,7 +765,6 @@
       display: flex;
       justify-content: space-between;
       gap: 15px;
-
       margin-top: 30px;
       color: var(--muted);
       font-size: 11px;
@@ -844,7 +776,6 @@
 
     .auth-layout {
       min-height: 100vh;
-
       display: grid;
       grid-template-columns: 1fr 1fr;
     }
@@ -853,7 +784,6 @@
       display: flex;
       flex-direction: column;
       justify-content: center;
-
       padding: clamp(35px, 7vw, 110px);
       background: var(--primary);
       color: white;
@@ -927,7 +857,6 @@
         display: block;
         position: fixed;
         inset: 0;
-
         background: rgba(15, 23, 42, 0.45);
         border: 0;
         z-index: 30;
@@ -974,8 +903,7 @@
       }
 
       .profile-name,
-      .workspace-caption,
-      .logout-label {
+      .workspace-caption {
         display: none;
       }
 
@@ -1083,8 +1011,7 @@
 
       {% elif name == 'accounts' %}
         <rect x="3" y="5" width="18" height="15" rx="3"/>
-        <path d="M3 9h18"/>
-        <path d="M16 14h5"/>
+        <path d="M3 9h18M16 14h5"/>
 
       {% elif name == 'budgets' %}
         <rect x="4" y="3" width="16" height="18" rx="2"/>
@@ -1098,6 +1025,14 @@
       {% elif name == 'reports' %}
         <path d="M4 20h16M7 16v-5m5 5V7m5 9V4"/>
 
+      {% elif name == 'plan' %}
+        <rect x="3" y="5" width="18" height="14" rx="3"/>
+        <path d="M3 10h18M7 15h4"/>
+
+      {% elif name == 'admin' %}
+        <path d="M12 3 4 6v5c0 5 8 10 8 10s8-5 8-10V6z"/>
+        <path d="m8 12 3 3 5-6"/>
+
       {% elif name == 'menu' %}
         <path d="M4 6h16M4 12h16M4 18h16"/>
 
@@ -1110,10 +1045,7 @@
   {% macro flash_messages() %}
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% for category, message in messages %}
-        <div
-          class="alert alert-{{ category }}"
-          role="alert"
-        >
+        <div class="alert alert-{{ category }}" role="alert">
           <span>{{ message }}</span>
 
           <button
@@ -1130,12 +1062,19 @@
   {% endmacro %}
 
   {% if current_user.is_authenticated %}
+    {% set can_use_finance = (
+      is_platform_admin or has_active_plan
+    ) %}
+
     <aside
       class="sidebar"
       id="sidebar"
       aria-label="Menu principal"
     >
-      <a class="brand" href="{{ url_for('dashboard') }}">
+      <a
+        class="brand"
+        href="{{ url_for('dashboard') if can_use_finance else url_for('plan') }}"
+      >
         <span class="brand-symbol">KB</span>
 
         <span>
@@ -1144,39 +1083,81 @@
         </span>
       </a>
 
-      <div class="nav-label">SEU CONTROLE FINANCEIRO</div>
+      <div class="nav-label">
+        SEU CONTROLE FINANCEIRO
+      </div>
 
       <nav>
-        {% set navigation = [
-          ('dashboard', 'Visão geral', ['dashboard']),
-          (
-            'transactions',
-            'Lançamentos',
-            ['transactions', 'transaction_form']
-          ),
-          (
-            'accounts',
-            'Minhas contas',
-            ['accounts', 'account_form']
-          ),
-          ('budgets', 'Planejamento', ['budgets']),
-          ('goals', 'Metas', ['goals', 'goal_form']),
-          ('reports', 'Relatórios', ['reports'])
-        ] %}
+        {% if can_use_finance %}
+          {% set navigation = [
+            ('dashboard', 'Visão geral', ['dashboard']),
+            (
+              'transactions',
+              'Lançamentos',
+              ['transactions', 'transaction_form']
+            ),
+            (
+              'accounts',
+              'Minhas contas',
+              ['accounts', 'account_form']
+            ),
+            ('budgets', 'Planejamento', ['budgets']),
+            ('goals', 'Metas', ['goals', 'goal_form']),
+            ('reports', 'Relatórios', ['reports'])
+          ] %}
 
-        {% for endpoint, label, active_endpoints in navigation %}
+          {% for endpoint, label, active_endpoints in navigation %}
+            <a
+              href="{{ url_for(endpoint) }}"
+              class="nav-link {% if request.endpoint in active_endpoints %}active{% endif %}"
+              {% if request.endpoint in active_endpoints %}
+                aria-current="page"
+              {% endif %}
+            >
+              {{ icon(endpoint) }}
+              <span>{{ label }}</span>
+            </a>
+          {% endfor %}
+        {% endif %}
+
+        {% if not is_platform_admin %}
           <a
-            href="{{ url_for(endpoint) }}"
-            class="nav-link {% if request.endpoint in active_endpoints %}active{% endif %}"
-            {% if request.endpoint in active_endpoints %}
+            href="{{ url_for('plan') }}"
+            class="nav-link {% if request.endpoint == 'plan' %}active{% endif %}"
+            {% if request.endpoint == 'plan' %}
               aria-current="page"
             {% endif %}
           >
-            {{ icon(endpoint) }}
-            <span>{{ label }}</span>
+            {{ icon('plan') }}
+            <span>Meu plano</span>
           </a>
-        {% endfor %}
+        {% endif %}
+
+        {% if is_platform_admin %}
+          <div class="nav-label" style="margin-top: 25px;">
+            GESTÃO DA PLATAFORMA
+          </div>
+
+          <a
+            href="{{ url_for('admin_panel') }}"
+            class="nav-link {% if request.endpoint == 'admin_panel' %}active{% endif %}"
+            {% if request.endpoint == 'admin_panel' %}
+              aria-current="page"
+            {% endif %}
+          >
+            {{ icon('admin') }}
+            <span>Administração</span>
+          </a>
+        {% endif %}
       </nav>
+
+      {% if not can_use_finance %}
+        <div class="info-box" style="margin-top: 22px;">
+          <strong>Seu cadastro está salvo.</strong>
+          Fale com o responsável na página do plano
+          para combinar a liberação do acesso.
+        </div>
+      {% endif %}
 
       <div class="sidebar-footer">
         <strong>Seu dinheiro, com direção.</strong>
@@ -1208,52 +1189,58 @@
 
           <div>
             <div class="workspace-name">
-              {{ workspace.name }}
+              {% if can_use_finance %}
+                {{ workspace.name }}
+              {% else %}
+                Minha assinatura
+              {% endif %}
             </div>
 
             <div class="workspace-caption">
-              {% if workspace.kind == 'personal' %}
-                Controle financeiro pessoal
+              {% if is_platform_admin %}
+                Administrador da plataforma
+              {% elif has_active_plan %}
+                Plano Completo ·
+                vence em {{ subscription_expires_on | date_br }}
+              {% elif access_status == 'blocked' %}
+                Acesso bloqueado
+              {% elif access_status == 'expired' %}
+                Plano vencido
               {% else %}
-                Controle financeiro empresarial
+                Aguardando liberação
               {% endif %}
             </div>
           </div>
         </div>
 
         <div class="topbar-right">
-          <details class="workspace-switcher">
-            <summary aria-label="Trocar espaço financeiro">
-              {% if workspace.kind == 'personal' %}
-                Pessoal
-              {% else %}
-                Empresarial
-              {% endif %}
-              ▾
-            </summary>
+          {% if can_use_finance %}
+            <details class="workspace-switcher">
+              <summary aria-label="Trocar espaço financeiro">
+                {{ 'Pessoal' if workspace.kind == 'personal' else 'Empresarial' }}
+                ▾
+              </summary>
 
-            <div class="workspace-options">
-              {% for item in workspaces %}
-                <form
-                  method="POST"
-                  action="{{ url_for('switch_workspace', workspace_id=item.id) }}"
-                >
-                  {{ action_form.hidden_tag() }}
-
-                  <button
-                    type="submit"
-                    class="{% if item.id == workspace.id %}selected{% endif %}"
+              <div class="workspace-options">
+                {% for item in workspaces %}
+                  <form
+                    method="POST"
+                    action="{{ url_for('switch_workspace', workspace_id=item.id) }}"
                   >
-                    {{ item.name }}
+                    {{ action_form.hidden_tag() }}
 
-                    {% if item.id == workspace.id %}
-                      ✓
-                    {% endif %}
-                  </button>
-                </form>
-              {% endfor %}
-            </div>
-          </details>
+                    <button
+                      type="submit"
+                      class="{% if item.id == workspace.id %}selected{% endif %}"
+                    >
+                      {{ item.name }}
+                      {% if item.id == workspace.id %}✓{% endif %}
+                    </button>
+                  </form>
+                {% endfor %}
+              </div>
+            </details>
+          {% endif %}
 
           <div class="profile">
             <span class="avatar" aria-hidden="true">
@@ -1358,6 +1345,7 @@
 
           if (toggle) {
             toggle.setAttribute("aria-expanded", "false");
+            toggle.setAttribute("aria-label", "Abrir menu");
           }
         } else {
           setMenu(
