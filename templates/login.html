@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+
+{% block auth_content %}
+<div class="auth-layout">
+  <section class="auth-intro">
+    <div class="actions">
+      <span
+        class="brand-symbol"
+        style="background: white; color: var(--primary);"
+      >
+        KB
+      </span>
+
+      <div>
+        <strong style="font-size: 23px;">Finance</strong>
+
+        <div
+          style="
+            font-size: 10px;
+            letter-spacing: 2px;
+            color: #dbeafe;
+          "
+        >
+          KBSISTEMAS
+        </div>
+      </div>
+    </div>
+
+    <h1>
+      Seu dinheiro.<br>
+      Seus planos.<br>
+      Seu controle.
+    </h1>
+
+    <p>
+      Organize suas finanças pessoais e empresariais
+      em um só lugar. Acompanhe suas contas, planeje
+      seus gastos e avance em direção às suas metas.
+    </p>
+
+    <div
+      style="
+        margin-top: 40px;
+        padding-top: 24px;
+        border-top: 1px solid rgba(255, 255, 255, 0.2);
+        font-size: 12px;
+        color: #dbeafe;
+      "
+    >
+      Clareza para decidir. Controle para crescer.
+    </div>
+  </section>
+
+  <main class="auth-main">
+    <div class="auth-card">
+      <a
+        href="{{ url_for('login') }}"
+        class="brand"
+        style="padding: 0; margin-bottom: 35px;"
+      >
+        <span class="brand-symbol">KB</span>
+
+        <span>
+          <span class="brand-name">Finance</span>
+          <span class="brand-caption">KBSISTEMAS</span>
+        </span>
+      </a>
+
+      <h2>Bom ter você por aqui.</h2>
+
+      <p class="muted small">
+        Entre na sua conta para acompanhar suas finanças.
+      </p>
+
+      <div style="margin-top: 24px;">
+        {{ flash_messages() }}
+      </div>
+
+      <form
+        method="POST"
+        action="{{ url_for('login') }}"
+      >
+        {{ form.hidden_tag() }}
+
+        {% for error in form.csrf_token.errors %}
+          <div class="alert alert-error" role="alert">
+            Sua sessão expirou. Atualize a página e tente novamente.
+          </div>
+        {% endfor %}
+
+        <div class="field">
+          {{ form.email.label }}
+
+          {{ form.email(
+            type="email",
+            placeholder="voce@exemplo.com",
+            autocomplete="username",
+            inputmode="email",
+            spellcheck="false",
+            autocapitalize="none",
+            required=true,
+            aria_describedby="email-errors"
+          ) }}
+
+          <div id="email-errors">
+            {% if form.email.errors %}
+              <ul class="field-errors">
+                {% for error in form.email.errors %}
+                  <li>{{ error }}</li>
+                {% endfor %}
+              </ul>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="row-between" style="margin-bottom: 7px;">
+            <label for="{{ form.password.id }}" style="margin: 0;">
+              {{ form.password.label.text }}
+            </label>
+
+            <button
+              type="button"
+              id="toggle-password"
+              aria-controls="{{ form.password.id }}"
+              aria-pressed="false"
+              style="
+                border: 0;
+                padding: 2px 0;
+                background: transparent;
+                color: var(--primary);
+                font-size: 11px;
+              "
+            >
+              Mostrar senha
+            </button>
+          </div>
+
+          {{ form.password(
+            placeholder="Digite sua senha",
+            autocomplete="current-password",
+            required=true,
+            aria_describedby="password-errors"
+          ) }}
+
+          <div id="password-errors">
+            {% if form.password.errors %}
+              <ul class="field-errors">
+                {% for error in form.password.errors %}
+                  <li>{{ error }}</li>
+                {% endfor %}
+              </ul>
+            {% endif %}
+          </div>
+        </div>
+
+        <button
+          type="submit"
+          class="btn btn-block"
+          style="margin-top: 8px; padding: 13px;"
+        >
+          Entrar na minha conta
+          <span aria-hidden="true">→</span>
+        </button>
+      </form>
+
+      <p class="auth-bottom">
+        Ainda não tem uma conta?
+        <a href="{{ url_for('register') }}">
+          <strong>Cadastre-se</strong>
+        </a>
+      </p>
+
+      <div
+        class="info-box"
+        style="margin-top: 30px;"
+      >
+        <strong>Pessoal e empresarial, cada um no seu espaço.</strong>
+        <br>
+        Depois de entrar, você poderá alternar entre
+        os dois controles pelo menu superior.
+      </div>
+
+      <p
+        class="muted"
+        style="
+          margin-top: 30px;
+          text-align: center;
+          font-size: 10px;
+        "
+      >
+        © {{ current_year }} KBSistemas Finance
+      </p>
+    </div>
+  </main>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (() => {
+    const button = document.getElementById("toggle-password");
+    const password = document.getElementById(
+      {{ form.password.id | tojson }}
+    );
+
+    if (!button || !password) {
+      return;
+    }
+
+    button.addEventListener("click", () => {
+      const visible = password.type === "password";
+
+      password.type = visible ? "text" : "password";
+
+      button.textContent = visible
+        ? "Ocultar senha"
+        : "Mostrar senha";
+
+      button.setAttribute("aria-pressed", String(visible));
+    });
+  })();
+</script>
+{% endblock %}
