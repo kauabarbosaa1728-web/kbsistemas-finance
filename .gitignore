@@ -1,0 +1,25 @@
+# Senhas e configurações locais
+.env
+.env.*
+!.env.example
+
+# Ambiente virtual
+.venv/
+venv/
+
+# Arquivos temporários do Python
+__pycache__/
+*.py[cod]
+
+# Banco local e dados da aplicação
+instance/
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+
+# Configurações do editor
+.vscode/
+.idea/
