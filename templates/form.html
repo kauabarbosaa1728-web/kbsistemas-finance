@@ -1,0 +1,266 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-heading">
+  <div>
+    <h1>{{ title }}</h1>
+
+    <p class="muted small">
+      {% if form.amount is defined %}
+        Registre suas entradas e saídas com os dados corretos.
+
+      {% elif form.opening_balance is defined %}
+        Organize suas contas bancárias, carteiras e caixas.
+
+      {% elif form.target is defined %}
+        Defina sua próxima conquista e acompanhe o progresso.
+
+      {% else %}
+        Preencha os dados abaixo para continuar.
+      {% endif %}
+    </p>
+  </div>
+
+  <a href="{{ back_url }}" class="btn btn-secondary">
+    ← Voltar
+  </a>
+</div>
+
+<section class="panel form-panel">
+  <form method="POST" id="record-form">
+    {{ form.hidden_tag() }}
+
+    {% if form.csrf_token.errors %}
+      <div class="alert alert-error" role="alert">
+        Sua sessão expirou.
+        Atualize a página antes de salvar novamente.
+      </div>
+    {% endif %}
+
+    {% if form.errors %}
+      <div class="alert alert-error" role="alert">
+        Confira os campos indicados abaixo.
+        As alterações ainda não foram salvas.
+      </div>
+    {% endif %}
+
+    {% if form.amount is defined and not form.account_id.choices %}
+      <div class="alert" role="alert">
+        <span>
+          Você precisa de uma conta ativa para cadastrar
+          um lançamento.
+
+          <a href="{{ url_for('account_form') }}">
+            Criar uma conta
+          </a>
+        </span>
+      </div>
+    {% endif %}
+
+    {% for field in form %}
+      {% if field.type not in [
+        'CSRFTokenField',
+        'HiddenField',
+        'SubmitField'
+      ] %}
+        <div class="field" id="field-{{ field.name }}">
+          {{ field.label }}
+
+          {% set error_id = field.id ~ '-errors' %}
+          {% set help_id = field.id ~ '-help' %}
+
+          {% if field.type == 'TextAreaField' %}
+            {{ field(
+              class_="input",
+              rows="4",
+              aria_invalid="true" if field.errors else "false",
+              aria_describedby=help_id ~ " " ~ error_id
+            ) }}
+
+          {% elif field.type == 'DecimalField' %}
+            {{ field(
+              class_="input",
+              inputmode="decimal",
+              placeholder="0.00",
+              aria_invalid="true" if field.errors else "false",
+              aria_describedby=help_id ~ " " ~ error_id
+            ) }}
+
+          {% else %}
+            {{ field(
+              class_="input",
+              aria_invalid="true" if field.errors else "false",
+              aria_describedby=help_id ~ " " ~ error_id
+            ) }}
+          {% endif %}
+
+          <div class="field-help" id="{{ help_id }}">
+            {% if field.name == 'amount' %}
+              Informe um valor positivo.
+              Use ponto nos centavos, por exemplo: 150.90.
+              O tipo define se é receita ou despesa.
+
+            {% elif field.name == 'opening_balance' %}
+              Valor existente antes dos lançamentos que você
+              vai cadastrar. Pode ser negativo.
+              Não cadastre esse mesmo saldo como receita.
+
+            {% elif field.name == 'due_date' %}
+              Data prevista para pagar ou receber.
+              Ela organiza a lista mensal de lançamentos.
+
+            {% elif field.name == 'paid_date' %}
+              Data em que o dinheiro entrou ou saiu.
+              Ela determina o mês nos indicadores de realizados.
+
+            {% elif field.name == 'status' %}
+              Pendente: ainda não aconteceu.
+              Realizado: o dinheiro já entrou ou saiu.
+
+            {% elif field.name == 'saved' %}
+              Total que você já reservou para esta meta.
+              Esse registro não movimenta o saldo das contas.
+
+            {% elif field.name == 'target' %}
+              Valor total que deseja alcançar.
+              Use ponto nos centavos, por exemplo: 5000.00.
+
+            {% elif field.name == 'deadline' %}
+              Opcional. Escolha uma data para alcançar a meta.
+
+            {% elif field.name == 'account_id' %}
+              Conta que recebe a receita ou paga a despesa.
+
+            {% elif field.name == 'notes' %}
+              Opcional. Inclua detalhes que ajudem a identificar
+              este lançamento.
+            {% endif %}
+          </div>
+
+          <div id="{{ error_id }}">
+            {% if field.errors %}
+              <ul class="field-errors">
+                {% for error in field.errors %}
+                  <li>{{ error }}</li>
+                {% endfor %}
+              </ul>
+            {% endif %}
+          </div>
+        </div>
+      {% endif %}
+    {% endfor %}
+
+    <div class="form-actions">
+      <a href="{{ back_url }}" class="btn btn-secondary">
+        Cancelar
+      </a>
+
+      <button
+        type="submit"
+        class="btn"
+        {% if form.amount is defined and not form.account_id.choices %}
+          disabled
+        {% endif %}
+      >
+        {{ form.submit.label.text }}
+      </button>
+    </div>
+  </form>
+</section>
+
+{% if form.target is defined %}
+  <div class="info-box form-panel">
+    <strong>Uma meta não é uma movimentação financeira.</strong>
+    <br>
+    Atualizar o valor reservado acompanha seu progresso.
+    Receitas e despesas devem ser registradas em Lançamentos.
+  </div>
+{% endif %}
+
+{% if form.opening_balance is defined %}
+  <div class="info-box form-panel">
+    <strong>Como funciona o saldo inicial?</strong>
+    <br>
+    Se você começa com R$ 1.000,00 e depois registra
+    uma despesa realizada de R$ 100,00, o saldo passa
+    a ser R$ 900,00.
+    Alterar o saldo inicial também altera o saldo acumulado.
+  </div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (() => {
+    const form = document.getElementById("record-form");
+
+    if (!form) {
+      return;
+    }
+
+    const status = form.querySelector('[name="status"]');
+    const paidDate = form.querySelector('[name="paid_date"]');
+
+    const paidDateContainer = document.getElementById(
+      "field-paid_date"
+    );
+
+    function syncPaymentField() {
+      if (!status || !paidDate || !paidDateContainer) {
+        return;
+      }
+
+      const realized = status.value === "paid";
+
+      paidDateContainer.hidden = !realized;
+      paidDate.required = realized;
+      paidDate.disabled = !realized;
+
+      if (!realized) {
+        paidDate.value = "";
+      }
+    }
+
+    if (status) {
+      status.addEventListener("change", syncPaymentField);
+      syncPaymentField();
+    }
+
+    // Apenas avisa ao sair com alterações.
+    // O envio continua sendo feito pelo formulário ao servidor.
+    let changed = false;
+    let submitting = false;
+
+    form.addEventListener("input", () => {
+      changed = true;
+    });
+
+    form.addEventListener("change", () => {
+      changed = true;
+    });
+
+    form.addEventListener("submit", () => {
+      submitting = true;
+    });
+
+    window.addEventListener("pageshow", () => {
+      submitting = false;
+    });
+
+    window.addEventListener("beforeunload", (event) => {
+      if (changed && !submitting) {
+        event.preventDefault();
+        event.returnValue = "";
+      }
+    });
+
+    const firstInvalid = form.querySelector(
+      '[aria-invalid="true"]'
+    );
+
+    if (firstInvalid) {
+      firstInvalid.focus();
+    }
+  })();
+</script>
+{% endblock %}
