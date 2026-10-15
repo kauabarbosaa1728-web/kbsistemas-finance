@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-heading">
+  <div>
+    <h1>Seu próximo passo começa aqui.</h1>
+
+    <p class="muted small">
+      Combine a contratação com a KBSistemas pelo WhatsApp.
+    </p>
+  </div>
+</div>
+
+<div style="max-width: 540px; margin: 0 auto;">
+  {% if access_status == 'blocked' %}
+    <div class="alert alert-error" role="alert">
+      Seu acesso está bloqueado.
+      Fale com o responsável para verificar a situação.
+    </div>
+
+  {% elif access_status == 'expired' %}
+    <div class="alert" role="alert">
+      Seu plano venceu.
+      Fale com o responsável para combinar a renovação.
+    </div>
+
+  {% elif has_active_plan %}
+    <div class="alert alert-success" role="status">
+      Seu plano está ativo.
+      Vencimento: {{ subscription_expires_on | date_br }}.
+    </div>
+
+  {% else %}
+    <div class="alert" role="status">
+      Sua conta foi criada. O acesso ao sistema será
+      liberado após a confirmação do responsável.
+    </div>
+  {% endif %}
+
+  <section class="panel" style="padding: 32px;">
+    <span class="badge badge-primary">
+      Um plano, controle pessoal e empresarial
+    </span>
+
+    <h2 style="margin-top: 20px; font-size: 25px;">
+      {{ plan_name }}
+    </h2>
+
+    <div style="margin: 22px 0;">
+      <strong
+        style="
+          font-size: 45px;
+          letter-spacing: -2px;
+          color: var(--primary);
+        "
+      >
+        {{ price_cents | brl }}
+      </strong>
+
+      <span class="muted small">/mês</span>
+    </div>
+
+    <p class="small muted">
+      Organize suas movimentações e acompanhe seus planos
+      em um só lugar.
+    </p>
+
+    <ul
+      style="
+        padding-left: 20px;
+        margin: 24px 0;
+        font-size: 13px;
+        line-height: 2.2;
+      "
+    >
+      <li>Controle pessoal e empresarial separado</li>
+      <li>Receitas, despesas e contas pendentes</li>
+      <li>Painel com atualização automática</li>
+      <li>Planejamento mensal por categoria</li>
+      <li>Metas financeiras</li>
+      <li>Relatórios e exportação CSV</li>
+    </ul>
+
+    <a
+      href="{{ whatsapp_url }}"
+      target="_blank"
+      rel="noopener noreferrer"
+      class="btn btn-block"
+      style="background: #128c5e; padding: 14px;"
+    >
+      Falar com o responsável
+      <span aria-hidden="true">↗</span>
+    </a>
+
+    <p
+      class="field-help"
+      style="text-align: center; margin-top: 12px;"
+    >
+      Abre o WhatsApp com uma mensagem pronta.
+      Você confere e envia a mensagem.
+    </p>
+
+    {% if has_active_plan %}
+      <a
+        href="{{ url_for('dashboard') }}"
+        class="btn btn-secondary btn-block"
+        style="margin-top: 14px;"
+      >
+        Acessar meu painel
+      </a>
+
+    {% else %}
+      <a
+        href="{{ url_for('dashboard') }}"
+        class="btn btn-secondary btn-block"
+        style="margin-top: 14px;"
+      >
+        Já falei com o responsável · verificar acesso
+      </a>
+    {% endif %}
+
+    <div class="info-box" style="margin-top: 24px;">
+      <strong>Como funciona?</strong>
+      <br>
+      Você combina o pagamento diretamente pelo WhatsApp.
+      Depois de conferir, o responsável libera seu acesso
+      por um mês. As renovações também são combinadas
+      diretamente com ele.
+      <br><br>
+      Não há cobrança automática nesta página.
+      Clicar no botão ou enviar uma mensagem não libera
+      o acesso automaticamente.
+    </div>
+
+    <p class="small muted" style="margin-top: 18px;">
+      Seu código de cliente:
+      <strong>#{{ current_user.id }}</strong>.
+      Informe esse código ao responsável.
+    </p>
+  </section>
+</div>
+{% endblock %}
