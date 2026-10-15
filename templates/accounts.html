@@ -1,0 +1,261 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-heading">
+  <div>
+    <h1>Minhas contas</h1>
+
+    <p class="muted small">
+      Organize onde seu dinheiro entra e sai.
+    </p>
+  </div>
+
+  <a
+    href="{{ url_for('account_form') }}"
+    class="btn"
+  >
+    + Nova conta
+  </a>
+</div>
+
+<div class="info-box" style="margin-bottom: 22px;">
+  <strong>Uma conta para cada lugar onde você movimenta dinheiro.</strong>
+  <br>
+  Você pode cadastrar, por exemplo, uma conta bancária,
+  uma carteira em dinheiro e o caixa da empresa.
+  Cada lançamento fica vinculado a uma conta.
+</div>
+
+{% if items %}
+  {% set counts = namespace(active=0, archived=0) %}
+
+  {% for item in items %}
+    {% if item.is_active %}
+      {% set counts.active = counts.active + 1 %}
+    {% else %}
+      {% set counts.archived = counts.archived + 1 %}
+    {% endif %}
+  {% endfor %}
+
+  <div class="grid-equal">
+    <section class="panel">
+      <div class="row-between">
+        <div>
+          <p class="stat-label">Contas ativas</p>
+
+          <strong
+            class="stat-value"
+            style="margin-bottom: 0;"
+          >
+            {{ counts.active }}
+          </strong>
+        </div>
+
+        <span class="badge badge-success">
+          Disponíveis para lançamentos
+        </span>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="row-between">
+        <div>
+          <p class="stat-label">Contas arquivadas</p>
+
+          <strong
+            class="stat-value"
+            style="margin-bottom: 0;"
+          >
+            {{ counts.archived }}
+          </strong>
+        </div>
+
+        <span class="badge badge-primary">
+          Histórico preservado
+        </span>
+      </div>
+    </section>
+  </div>
+
+  <section class="panel">
+    <div class="panel-heading">
+      <div>
+        <h2>Contas deste espaço</h2>
+
+        <p>
+          {{ workspace.name }} ·
+          {{ items | length }}
+          conta{{ 's' if items | length != 1 else '' }}
+        </p>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Conta</th>
+            <th>Situação</th>
+            <th class="text-right">Saldo inicial</th>
+            <th class="text-right">Ações</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for item in items %}
+            <tr>
+              <td style="min-width: 180px;">
+                <strong>{{ item.name }}</strong>
+
+                <div
+                  class="muted"
+                  style="margin-top: 4px; font-size: 10px;"
+                >
+                  {% if workspace.kind == 'personal' %}
+                    Espaço pessoal
+                  {% else %}
+                    Espaço empresarial
+                  {% endif %}
+                </div>
+              </td>
+
+              <td>
+                {% if item.is_active %}
+                  <span class="badge badge-success">
+                    Ativa
+                  </span>
+                {% else %}
+                  <span class="badge badge-primary">
+                    Arquivada
+                  </span>
+                {% endif %}
+              </td>
+
+              <td
+                class="
+                  text-right nowrap
+                  {% if item.opening_balance_cents < 0 %}
+                    negative
+                  {% endif %}
+                "
+              >
+                <strong>
+                  {{ item.opening_balance_cents | brl }}
+                </strong>
+              </td>
+
+              <td class="text-right">
+                <div
+                  class="actions"
+                  style="justify-content: flex-end;"
+                >
+                  <a
+                    href="{{ url_for('account_form', account_id=item.id) }}"
+                    class="btn btn-soft btn-sm"
+                    aria-label="Editar conta {{ item.name }}"
+                  >
+                    Editar
+                  </a>
+
+                  <form
+                    method="POST"
+                    action="{{ url_for('toggle_account', account_id=item.id) }}"
+                    class="inline-form"
+                    {% if item.is_active %}
+                      data-archive-form
+                    {% endif %}
+                  >
+                    {{ action_form.hidden_tag() }}
+
+                    <button
+                      type="submit"
+                      class="btn btn-secondary btn-sm"
+                      aria-label="{{ 'Arquivar' if item.is_active else 'Reativar' }} conta {{ item.name }}"
+                    >
+                      {{ 'Arquivar' if item.is_active else 'Reativar' }}
+                    </button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+{% else %}
+  <section class="panel">
+    <div class="empty-state">
+      <h3>Onde você movimenta seu dinheiro?</h3>
+
+      <p>
+        Cadastre sua primeira conta para começar
+        a registrar receitas e despesas.
+      </p>
+
+      <a
+        href="{{ url_for('account_form') }}"
+        class="btn"
+      >
+        + Criar primeira conta
+      </a>
+    </div>
+  </section>
+{% endif %}
+
+<div class="grid-equal">
+  <section class="panel">
+    <h2>Entenda o saldo inicial</h2>
+
+    <p class="small muted" style="margin-top: 12px;">
+      É o valor que já existia na conta antes dos
+      lançamentos cadastrados no sistema.
+      Ele não representa o saldo atual.
+    </p>
+
+    <div class="info-box" style="margin-top: 18px;">
+      Exemplo: saldo inicial de <strong>R$ 1.000,00</strong>,
+      mais uma receita realizada de <strong>R$ 500,00</strong>,
+      menos uma despesa realizada de <strong>R$ 200,00</strong>,
+      resulta em <strong>R$ 1.300,00</strong>.
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>O que acontece ao arquivar?</h2>
+
+    <p class="small muted" style="margin-top: 12px;">
+      A conta deixa de aparecer nas opções de novos
+      lançamentos. Seus registros anteriores continuam
+      preservados e participando dos cálculos.
+    </p>
+
+    <p class="small muted" style="margin-top: 12px;">
+      Arquivar não transfere nem retira dinheiro.
+      Você pode reativar a conta quando precisar.
+    </p>
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (() => {
+    document.querySelectorAll("[data-archive-form]")
+      .forEach((form) => {
+        form.addEventListener("submit", (event) => {
+          const confirmed = window.confirm(
+            "Arquivar esta conta? " +
+            "O histórico e os valores serão preservados, " +
+            "mas ela ficará indisponível para novos lançamentos."
+          );
+
+          if (!confirmed) {
+            event.preventDefault();
+          }
+        });
+      });
+  })();
+</script>
+{% endblock %}
