@@ -1,0 +1,287 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-heading">
+  <div>
+    <h1>Minhas metas</h1>
+
+    <p class="muted small">
+      Transforme seus objetivos em planos e acompanhe cada conquista.
+    </p>
+  </div>
+
+  <a href="{{ url_for('goal_form') }}" class="btn">
+    + Nova meta
+  </a>
+</div>
+
+{% set totals = namespace(target=0, saved=0, completed=0, remaining=0) %}
+
+{% for item in items %}
+  {% set totals.target = totals.target + item.target_cents %}
+  {% set totals.saved = totals.saved + item.saved_cents %}
+
+  {% if item.saved_cents >= item.target_cents %}
+    {% set totals.completed = totals.completed + 1 %}
+  {% else %}
+    {% set totals.remaining = (
+      totals.remaining + item.target_cents - item.saved_cents
+    ) %}
+  {% endif %}
+{% endfor %}
+
+<div class="cards">
+  <section class="stat-card primary">
+    <div class="stat-label">Valor dos objetivos</div>
+
+    <strong class="stat-value">
+      {{ totals.target | brl }}
+    </strong>
+
+    <div class="stat-note">
+      Soma de todas as metas
+    </div>
+  </section>
+
+  <section class="stat-card">
+    <div class="stat-label">Total informado como reservado</div>
+
+    <strong class="stat-value positive">
+      {{ totals.saved | brl }}
+    </strong>
+
+    <div class="stat-note">
+      Reservas registradas por você
+    </div>
+  </section>
+
+  <section class="stat-card">
+    <div class="stat-label">Falta para concluir</div>
+
+    <strong class="stat-value">
+      {{ totals.remaining | brl }}
+    </strong>
+
+    <div class="stat-note">
+      Soma do que falta em cada meta
+    </div>
+  </section>
+
+  <section class="stat-card">
+    <div class="stat-label">Metas alcançadas</div>
+
+    <strong class="stat-value positive">
+      {{ totals.completed }}
+    </strong>
+
+    <div class="stat-note">
+      De {{ items | length }}
+      meta{{ 's' if items | length != 1 else '' }}
+    </div>
+  </section>
+</div>
+
+{% if items %}
+  <div class="grid-equal">
+    {% for item in items %}
+      {% set completed = item.saved_cents >= item.target_cents %}
+
+      {% set percentage = (
+        item.saved_cents / item.target_cents * 100
+      ) %}
+
+      <section class="panel">
+        <div class="panel-heading">
+          <div style="min-width: 0;">
+            <h2 style="overflow-wrap: anywhere;">
+              {{ item.name }}
+            </h2>
+
+            <p>
+              Criada em {{ item.created_at | date_br }}
+            </p>
+          </div>
+
+          {% if completed %}
+            <span class="badge badge-success">
+              Alcançada
+            </span>
+          {% else %}
+            <span class="badge badge-primary">
+              Em andamento
+            </span>
+          {% endif %}
+        </div>
+
+        <div
+          class="row-between"
+          style="align-items: flex-end; margin-bottom: 15px;"
+        >
+          <div>
+            <p class="small muted">Valor reservado</p>
+
+            <strong
+              class="positive"
+              style="
+                display: block;
+                margin-top: 5px;
+                font-size: 25px;
+                letter-spacing: -0.8px;
+                overflow-wrap: anywhere;
+              "
+            >
+              {{ item.saved_cents | brl }}
+            </strong>
+          </div>
+
+          <span
+            class="small"
+            style="color: var(--primary); font-weight: 700;"
+          >
+            {{ '%.1f' | format(percentage) | replace('.', ',') }}%
+          </span>
+        </div>
+
+        <div
+          class="progress"
+          role="progressbar"
+          aria-label="Progresso da meta {{ item.name }}"
+          aria-valuemin="0"
+          aria-valuemax="100"
+          aria-valuenow="{{ [percentage, 100] | min }}"
+          aria-valuetext="{{ item.saved_cents | brl }} de {{ item.target_cents | brl }}{% if completed %}, meta alcançada{% endif %}"
+        >
+          <div
+            class="progress-bar"
+            style="
+              width: {{ [percentage, 100] | min }}%;
+              {% if completed %}
+                background: var(--success);
+              {% endif %}
+            "
+          ></div>
+        </div>
+
+        <div
+          class="row-between small"
+          style="margin-top: 12px; flex-wrap: wrap;"
+        >
+          <span class="muted">
+            Objetivo:
+            <strong>{{ item.target_cents | brl }}</strong>
+          </span>
+
+          {% if completed %}
+            <span class="positive">
+              Objetivo alcançado!
+            </span>
+          {% else %}
+            <span class="muted">
+              Faltam
+              <strong>
+                {{ (item.target_cents - item.saved_cents) | brl }}
+              </strong>
+            </span>
+          {% endif %}
+        </div>
+
+        <div
+          class="row-between"
+          style="
+            margin-top: 23px;
+            padding-top: 18px;
+            border-top: 1px solid var(--border);
+            flex-wrap: wrap;
+          "
+        >
+          <div class="small muted">
+            {% if item.deadline %}
+              Prazo:
+              <strong>{{ item.deadline | date_br }}</strong>
+            {% else %}
+              Sem prazo definido
+            {% endif %}
+          </div>
+
+          <div class="actions">
+            <a
+              href="{{ url_for('goal_form', goal_id=item.id) }}"
+              class="btn btn-soft btn-sm"
+              aria-label="Atualizar meta {{ item.name }}"
+            >
+              Atualizar meta
+            </a>
+
+            <form
+              method="POST"
+              action="{{ url_for('delete_goal', goal_id=item.id) }}"
+              class="inline-form"
+              data-delete-goal
+            >
+              {{ action_form.hidden_tag() }}
+
+              <button
+                type="submit"
+                class="btn btn-danger btn-sm"
+                aria-label="Excluir meta {{ item.name }}"
+              >
+                Excluir
+              </button>
+            </form>
+          </div>
+        </div>
+      </section>
+    {% endfor %}
+  </div>
+
+{% else %}
+  <section class="panel">
+    <div class="empty-state">
+      <h3>Qual é sua próxima conquista?</h3>
+
+      <p>
+        Uma reserva de emergência, um curso, uma viagem
+        ou a expansão da sua empresa.
+        Defina o valor e comece a acompanhar.
+      </p>
+
+      <a href="{{ url_for('goal_form') }}" class="btn">
+        + Criar primeira meta
+      </a>
+    </div>
+  </section>
+{% endif %}
+
+<div class="info-box">
+  <strong>Como atualizar sua reserva?</strong>
+  Clique em <strong>Atualizar meta</strong> e informe
+  o valor total que já reservou, incluindo o que estava
+  registrado anteriormente.
+  <br><br>
+  As metas são um acompanhamento informativo:
+  não movimentam nem bloqueiam o saldo das contas.
+  Evite contar o mesmo dinheiro como reserva de duas metas.
+  Excluir uma meta também não altera seus lançamentos.
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (() => {
+    document.querySelectorAll("[data-delete-goal]")
+      .forEach((form) => {
+        form.addEventListener("submit", (event) => {
+          const confirmed = window.confirm(
+            "Excluir esta meta e seu acompanhamento? " +
+            "Os lançamentos e o saldo das contas " +
+            "não serão alterados."
+          );
+
+          if (!confirmed) {
+            event.preventDefault();
+          }
+        });
+      });
+  })();
+</script>
+{% endblock %}
