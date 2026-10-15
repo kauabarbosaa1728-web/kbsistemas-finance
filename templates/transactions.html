@@ -1,0 +1,401 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-heading">
+  <div>
+    <h1>Lançamentos</h1>
+
+    <p class="muted small">
+      Organize suas receitas, despesas e contas pendentes.
+    </p>
+  </div>
+
+  <div class="actions">
+    <a
+      href="{{ url_for('export_csv', month=month) }}"
+      class="btn btn-secondary"
+    >
+      Exportar mês · CSV
+    </a>
+
+    <a
+      href="{{ url_for('transaction_form') }}"
+      class="btn"
+    >
+      + Novo lançamento
+    </a>
+  </div>
+</div>
+
+<section class="panel">
+  <form
+    method="GET"
+    action="{{ url_for('transactions') }}"
+    class="filters"
+    role="search"
+  >
+    <div class="field">
+      <label for="filter-month">Mês de vencimento</label>
+
+      <input
+        type="month"
+        id="filter-month"
+        name="month"
+        value="{{ month }}"
+        min="1900-01"
+        max="9998-12"
+        required
+      >
+    </div>
+
+    <div class="field" style="flex: 2;">
+      <label for="filter-search">Buscar descrição</label>
+
+      <input
+        type="search"
+        id="filter-search"
+        name="q"
+        value="{{ q }}"
+        placeholder="Ex.: mercado, salário, fornecedor…"
+        maxlength="200"
+      >
+    </div>
+
+    <div class="field">
+      <label for="filter-kind">Tipo</label>
+
+      <select id="filter-kind" name="kind">
+        <option value="">Todos os tipos</option>
+
+        <option
+          value="income"
+          {% if kind == 'income' %}selected{% endif %}
+        >
+          Receitas
+        </option>
+
+        <option
+          value="expense"
+          {% if kind == 'expense' %}selected{% endif %}
+        >
+          Despesas
+        </option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="filter-status">Situação</label>
+
+      <select id="filter-status" name="status">
+        <option value="">Todas as situações</option>
+
+        <option
+          value="pending"
+          {% if status == 'pending' %}selected{% endif %}
+        >
+          Pendentes
+        </option>
+
+        <option
+          value="paid"
+          {% if status == 'paid' %}selected{% endif %}
+        >
+          Realizados
+        </option>
+      </select>
+    </div>
+
+    <div class="actions">
+      <button type="submit" class="btn">
+        Filtrar
+      </button>
+
+      <a
+        href="{{ url_for('transactions', month=month) }}"
+        class="btn btn-secondary"
+      >
+        Limpar
+      </a>
+    </div>
+  </form>
+
+  <div
+    class="info-box"
+    style="margin-bottom: 22px;"
+  >
+    Esta lista usa o <strong>mês do vencimento</strong>.
+    No painel, receitas e despesas realizadas usam a
+    <strong>data efetiva do pagamento ou recebimento</strong>.
+    O CSV exporta todos os lançamentos do mês,
+    independentemente dos demais filtros.
+  </div>
+
+  {% if items %}
+    <div
+      class="row-between"
+      style="margin-bottom: 16px;"
+    >
+      <p class="small muted">
+        {{ pagination.total }}
+        lançamento{{ 's' if pagination.total != 1 else '' }}
+        encontrado{{ 's' if pagination.total != 1 else '' }}
+      </p>
+
+      <span class="badge badge-primary">
+        {{ month[5:7] }}/{{ month[:4] }}
+      </span>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Descrição / conta</th>
+            <th>Categoria</th>
+            <th>Tipo</th>
+            <th>Vencimento</th>
+            <th>Realização</th>
+            <th>Situação</th>
+            <th class="text-right">Valor</th>
+            <th class="text-right">Ações</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for item in items %}
+            {% set account = accounts.get(item.account_id) %}
+
+            <tr>
+              <td style="min-width: 190px;">
+                <strong>{{ item.description }}</strong>
+
+                <div
+                  class="muted"
+                  style="font-size: 10px; margin-top: 4px;"
+                >
+                  {% if account %}
+                    {{ account.name }}
+
+                    {% if not account.is_active %}
+                      · Arquivada
+                    {% endif %}
+                  {% else %}
+                    Conta indisponível
+                  {% endif %}
+                </div>
+
+                {% if item.notes %}
+                  <details style="margin-top: 7px;">
+                    <summary
+                      class="muted"
+                      style="cursor: pointer; font-size: 10px;"
+                    >
+                      Observações
+                    </summary>
+
+                    <p
+                      class="small muted"
+                      style="
+                        margin-top: 6px;
+                        max-width: 300px;
+                        white-space: pre-wrap;
+                        overflow-wrap: anywhere;
+                      "
+                    >{{ item.notes }}</p>
+                  </details>
+                {% endif %}
+              </td>
+
+              <td>{{ item.category }}</td>
+
+              <td>
+                {% if item.kind == 'income' %}
+                  <span class="positive">Receita</span>
+                {% else %}
+                  <span class="negative">Despesa</span>
+                {% endif %}
+              </td>
+
+              <td class="nowrap">
+                {{ item.due_date | date_br }}
+              </td>
+
+              <td class="nowrap">
+                {{ item.paid_date | date_br }}
+              </td>
+
+              <td>
+                {% if item.status == 'paid' %}
+                  <span class="badge badge-success">
+                    Realizado
+                  </span>
+                {% else %}
+                  <span class="badge badge-warning">
+                    Pendente
+                  </span>
+                {% endif %}
+              </td>
+
+              <td
+                class="
+                  text-right nowrap
+                  {{ 'positive' if item.kind == 'income' else 'negative' }}
+                "
+              >
+                <strong>
+                  {{ '+' if item.kind == 'income' else '−' }}
+                  {{ item.amount_cents | brl }}
+                </strong>
+              </td>
+
+              <td class="text-right nowrap">
+                <div
+                  class="actions"
+                  style="justify-content: flex-end; flex-wrap: nowrap;"
+                >
+                  <a
+                    href="{{ url_for('transaction_form', transaction_id=item.id) }}"
+                    class="btn btn-soft btn-sm"
+                    aria-label="Editar {{ item.description }}"
+                  >
+                    Editar
+                  </a>
+
+                  <form
+                    method="POST"
+                    action="{{ url_for('delete_transaction', transaction_id=item.id) }}"
+                    class="inline-form"
+                    data-delete-form
+                  >
+                    {{ action_form.hidden_tag() }}
+
+                    <button
+                      type="submit"
+                      class="btn btn-danger btn-sm"
+                      aria-label="Excluir {{ item.description }}"
+                    >
+                      Excluir
+                    </button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+  {% else %}
+    <div class="empty-state">
+      {% if q or kind or status %}
+        <h3>Nenhum resultado com esses filtros.</h3>
+
+        <p>
+          Tente outra descrição ou remova os filtros
+          para consultar o mês inteiro.
+        </p>
+
+        <a
+          href="{{ url_for('transactions', month=month) }}"
+          class="btn btn-secondary"
+        >
+          Limpar filtros
+        </a>
+
+      {% else %}
+        <h3>Nenhum lançamento neste mês.</h3>
+
+        <p>
+          Cadastre uma receita ou despesa, ou escolha
+          outro mês de vencimento.
+        </p>
+
+        <a
+          href="{{ url_for('transaction_form') }}"
+          class="btn"
+        >
+          + Novo lançamento
+        </a>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  {% if pagination.pages > 1 or pagination.page > 1 %}
+    <nav class="pagination" aria-label="Páginas de lançamentos">
+      <div>
+        {% if pagination.has_prev %}
+          <a
+            href="{{ url_for(
+              'transactions',
+              month=month,
+              q=q,
+              kind=kind,
+              status=status,
+              page=pagination.prev_num
+            ) }}"
+            class="btn btn-secondary btn-sm"
+            rel="prev"
+          >
+            ← Anterior
+          </a>
+        {% endif %}
+      </div>
+
+      <span class="muted">
+        Página {{ pagination.page }}
+        {% if pagination.pages %}
+          de {{ pagination.pages }}
+        {% endif %}
+      </span>
+
+      <div>
+        {% if pagination.has_next %}
+          <a
+            href="{{ url_for(
+              'transactions',
+              month=month,
+              q=q,
+              kind=kind,
+              status=status,
+              page=pagination.next_num
+            ) }}"
+            class="btn btn-secondary btn-sm"
+            rel="next"
+          >
+            Próxima →
+          </a>
+        {% endif %}
+      </div>
+    </nav>
+  {% endif %}
+</section>
+
+<div class="info-box">
+  <strong>Pagou ou recebeu uma conta pendente?</strong>
+  Clique em <strong>Editar</strong>, altere a situação
+  para <strong>Realizado</strong> e informe a data
+  em que o dinheiro entrou ou saiu.
+  O painel passa a considerar essa movimentação.
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (() => {
+    document.querySelectorAll("[data-delete-form]")
+      .forEach((form) => {
+        form.addEventListener("submit", (event) => {
+          const confirmed = window.confirm(
+            "Excluir este lançamento? " +
+            "Essa ação altera os totais financeiros " +
+            "e não pode ser desfeita."
+          );
+
+          if (!confirmed) {
+            event.preventDefault();
+          }
+        });
+      });
+  })();
+</script>
+{% endblock %}
