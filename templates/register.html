@@ -1,0 +1,299 @@
+{% extends "base.html" %}
+
+{% block auth_content %}
+<div class="auth-layout">
+  <section class="auth-intro">
+    <div class="actions">
+      <span
+        class="brand-symbol"
+        style="background: white; color: var(--primary);"
+      >
+        KB
+      </span>
+
+      <div>
+        <strong style="font-size: 23px;">Finance</strong>
+
+        <div
+          style="
+            font-size: 10px;
+            letter-spacing: 2px;
+            color: #dbeafe;
+          "
+        >
+          KBSISTEMAS
+        </div>
+      </div>
+    </div>
+
+    <h1>
+      Organize o presente.<br>
+      Planeje suas<br>
+      próximas conquistas.
+    </h1>
+
+    <p>
+      Dê um destino para o seu dinheiro.
+      Controle entradas e saídas, acompanhe vencimentos
+      e transforme seus objetivos em planos.
+    </p>
+
+    <div
+      style="
+        margin-top: 35px;
+        display: grid;
+        gap: 16px;
+        font-size: 14px;
+        color: #dbeafe;
+      "
+    >
+      <div>✓ Finanças pessoais e empresariais separadas</div>
+      <div>✓ Receitas, despesas e planejamento mensal</div>
+      <div>✓ Metas para acompanhar suas conquistas</div>
+    </div>
+
+    <div
+      style="
+        margin-top: 40px;
+        padding-top: 24px;
+        border-top: 1px solid rgba(255, 255, 255, 0.2);
+        font-size: 12px;
+        color: #dbeafe;
+      "
+    >
+      Clareza para decidir. Controle para crescer.
+    </div>
+  </section>
+
+  <main class="auth-main">
+    <div class="auth-card">
+      <a
+        href="{{ url_for('login') }}"
+        class="brand"
+        style="padding: 0; margin-bottom: 30px;"
+      >
+        <span class="brand-symbol">KB</span>
+
+        <span>
+          <span class="brand-name">Finance</span>
+          <span class="brand-caption">KBSISTEMAS</span>
+        </span>
+      </a>
+
+      <h2>Comece seu planejamento.</h2>
+
+      <p class="muted small">
+        Crie sua conta para organizar suas finanças.
+      </p>
+
+      <div style="margin-top: 22px;">
+        {{ flash_messages() }}
+      </div>
+
+      <form
+        method="POST"
+        action="{{ url_for('register') }}"
+      >
+        {{ form.hidden_tag() }}
+
+        {% if form.csrf_token.errors %}
+          <div class="alert alert-error" role="alert">
+            Sua sessão expirou.
+            Atualize a página e tente novamente.
+          </div>
+        {% endif %}
+
+        <div class="field">
+          {{ form.name.label }}
+
+          {{ form.name(
+            placeholder="Como podemos chamar você?",
+            autocomplete="name",
+            maxlength="100",
+            required=true,
+            aria_describedby="name-errors"
+          ) }}
+
+          <div id="name-errors">
+            {% if form.name.errors %}
+              <ul class="field-errors">
+                {% for error in form.name.errors %}
+                  <li>{{ error }}</li>
+                {% endfor %}
+              </ul>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="field">
+          {{ form.email.label }}
+
+          {{ form.email(
+            type="email",
+            placeholder="voce@exemplo.com",
+            autocomplete="username",
+            inputmode="email",
+            spellcheck="false",
+            autocapitalize="none",
+            maxlength="254",
+            required=true,
+            aria_describedby="email-errors"
+          ) }}
+
+          <div id="email-errors">
+            {% if form.email.errors %}
+              <ul class="field-errors">
+                {% for error in form.email.errors %}
+                  <li>{{ error }}</li>
+                {% endfor %}
+              </ul>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="row-between" style="margin-bottom: 7px;">
+            <label
+              for="{{ form.password.id }}"
+              style="margin: 0;"
+            >
+              {{ form.password.label.text }}
+            </label>
+
+            <button
+              type="button"
+              id="toggle-passwords"
+              aria-controls="{{ form.password.id }} {{ form.confirm_password.id }}"
+              aria-pressed="false"
+              style="
+                border: 0;
+                padding: 2px 0;
+                background: transparent;
+                color: var(--primary);
+                font-size: 11px;
+              "
+            >
+              Mostrar senhas
+            </button>
+          </div>
+
+          {{ form.password(
+            placeholder="Crie uma senha",
+            autocomplete="new-password",
+            minlength="10",
+            maxlength="128",
+            required=true,
+            aria_describedby="password-help password-errors"
+          ) }}
+
+          <p class="field-help" id="password-help">
+            Use entre 10 e 128 caracteres.
+            Prefira uma senha exclusiva para esta conta.
+          </p>
+
+          <div id="password-errors">
+            {% if form.password.errors %}
+              <ul class="field-errors">
+                {% for error in form.password.errors %}
+                  <li>{{ error }}</li>
+                {% endfor %}
+              </ul>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="field">
+          {{ form.confirm_password.label }}
+
+          {{ form.confirm_password(
+            placeholder="Digite a senha novamente",
+            autocomplete="new-password",
+            minlength="10",
+            maxlength="128",
+            required=true,
+            aria_describedby="confirm-password-errors"
+          ) }}
+
+          <div id="confirm-password-errors">
+            {% if form.confirm_password.errors %}
+              <ul class="field-errors">
+                {% for error in form.confirm_password.errors %}
+                  <li>{{ error }}</li>
+                {% endfor %}
+              </ul>
+            {% endif %}
+          </div>
+        </div>
+
+        <button
+          type="submit"
+          class="btn btn-block"
+          style="margin-top: 8px; padding: 13px;"
+        >
+          Criar minha conta
+          <span aria-hidden="true">→</span>
+        </button>
+      </form>
+
+      <p class="auth-bottom">
+        Já tem uma conta?
+        <a href="{{ url_for('login') }}">
+          <strong>Entrar</strong>
+        </a>
+      </p>
+
+      <div class="info-box" style="margin-top: 25px;">
+        Ao criar sua conta, você terá dois espaços:
+        <strong>Minhas finanças</strong> e
+        <strong>Minha empresa</strong>.
+        Os lançamentos de cada espaço ficam separados.
+      </div>
+
+      <p
+        class="muted"
+        style="
+          margin-top: 25px;
+          text-align: center;
+          font-size: 10px;
+        "
+      >
+        © {{ current_year }} KBSistemas Finance
+      </p>
+    </div>
+  </main>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (() => {
+    const button = document.getElementById("toggle-passwords");
+
+    const password = document.getElementById(
+      {{ form.password.id | tojson }}
+    );
+
+    const confirmation = document.getElementById(
+      {{ form.confirm_password.id | tojson }}
+    );
+
+    if (!button || !password || !confirmation) {
+      return;
+    }
+
+    button.addEventListener("click", () => {
+      const visible = password.type === "password";
+      const type = visible ? "text" : "password";
+
+      password.type = type;
+      confirmation.type = type;
+
+      button.textContent = visible
+        ? "Ocultar senhas"
+        : "Mostrar senhas";
+
+      button.setAttribute("aria-pressed", String(visible));
+    });
+  })();
+</script>
+{% endblock %}
