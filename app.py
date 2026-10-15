@@ -5,6 +5,7 @@ import os
 
 from datetime import date, datetime
 from decimal import Decimal
+from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 
 import click
@@ -71,6 +72,10 @@ login_manager.login_message = "Entre para acessar seu sistema."
 login_manager.login_message_category = "info"
 
 TIMEZONE = ZoneInfo("America/Sao_Paulo")
+
+PLAN_NAME = "Plano Completo"
+PLAN_PRICE_CENTS = 5990
+WHATSAPP_NUMBER = "5511911524799"
 
 
 # --------------------------------------------------
@@ -483,7 +488,10 @@ def template_context():
 
 @app.after_request
 def response_headers(response):
-    if current_user.is_authenticated:
+    if (
+        current_user.is_authenticated
+        or request.endpoint in ("login", "register")
+    ):
         response.headers["Cache-Control"] = "no-store"
 
     response.headers["X-Content-Type-Options"] = "nosniff"
@@ -578,7 +586,8 @@ def register():
             session.permanent = True
             session["workspace_id"] = personal.id
 
-            return redirect(url_for("dashboard"))
+            # O cadastro não confirma pagamento nem libera o plano.
+            return redirect(url_for("plan"))
 
     return render_template(
         "register.html",
@@ -606,6 +615,8 @@ def login():
             login_user(user)
             session.permanent = True
 
+            # O controle de acesso do admin.py verificará
+            # se o cliente já teve o plano liberado.
             return redirect(url_for("dashboard"))
 
         flash("E-mail ou senha inválidos.", "error")
@@ -652,6 +663,42 @@ def switch_workspace(workspace_id):
     session["workspace_id"] = workspace.id
 
     return redirect(url_for("dashboard"))
+
+
+# --------------------------------------------------
+# PLANO E CONTATO PELO WHATSAPP
+# --------------------------------------------------
+
+@app.get("/plano")
+@login_required
+def plan():
+    owner_email = os.environ.get(
+        "ADMIN_EMAIL", ""
+    ).strip().lower()
+
+    # O dono não precisa contratar o plano.
+    if owner_email and current_user.email == owner_email:
+        return redirect(url_for("dashboard"))
+
+    message = (
+        "Olá! Acabei de me cadastrar no KBSistemas Finance "
+        "e quero contratar o Plano Completo de R$ 59,90/mês. "
+        f"Meu código de cliente é {current_user.id}. "
+        "Como faço para pagar e liberar meu acesso?"
+    )
+
+    whatsapp_url = (
+        f"https://wa.me/{WHATSAPP_NUMBER}?"
+        + urlencode({"text": message})
+    )
+
+    return render_template(
+        "plan.html",
+        title="Meu plano",
+        plan_name=PLAN_NAME,
+        price_cents=PLAN_PRICE_CENTS,
+        whatsapp_url=whatsapp_url,
+    )
 
 
 # --------------------------------------------------
@@ -1245,8 +1292,6 @@ def init_db():
 # ADMINISTRAÇÃO DA PLATAFORMA
 # --------------------------------------------------
 
-# Carrega o modelo de bloqueios e registra as rotas
-# administrativas antes de iniciar o aplicativo.
 from admin import init_admin
 
 init_admin(app)
