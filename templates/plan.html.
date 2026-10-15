@@ -1,45 +1,176 @@
 {% extends "base.html" %}
 
+{% block extra_head %}
+<style>
+  .plan-container {
+    max-width: 540px;
+    margin: 0 auto;
+  }
+
+  .plan-card {
+    padding: 32px;
+  }
+
+  .plan-price {
+    font-size: 45px;
+    letter-spacing: -2px;
+    color: var(--primary);
+  }
+
+  .plan-features {
+    padding-left: 20px;
+    margin: 24px 0;
+    font-size: 13px;
+    line-height: 2.2;
+  }
+
+  .confirmation-card {
+    padding: 28px;
+    margin-bottom: 22px;
+    border: 1px solid #a7f3d0;
+    border-radius: 16px;
+    background: var(--success-light);
+    text-align: center;
+  }
+
+  .confirmation-symbol {
+    display: grid;
+    place-items: center;
+    width: 56px;
+    height: 56px;
+    margin: 0 auto 16px;
+    border-radius: 50%;
+    background: var(--success);
+    color: white;
+    font-size: 28px;
+    font-weight: 700;
+  }
+
+  .confirmation-card h2 {
+    color: #065f46;
+    font-size: 23px;
+    margin-bottom: 10px;
+  }
+
+  .plan-sync {
+    margin: 16px 0;
+    text-align: center;
+    color: var(--muted);
+    font-size: 11px;
+  }
+
+  @media (max-width: 600px) {
+    .plan-card {
+      padding: 23px;
+    }
+
+    .plan-price {
+      font-size: 38px;
+    }
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="page-heading">
   <div>
-    <h1>Seu próximo passo começa aqui.</h1>
+    <h1>Meu plano</h1>
 
     <p class="muted small">
-      Combine a contratação com a KBSistemas pelo WhatsApp.
+      Contratação pelo WhatsApp e liberação pelo responsável.
     </p>
   </div>
 </div>
 
-<div style="max-width: 540px; margin: 0 auto;">
-  {% if access_status == 'blocked' %}
-    <div class="alert alert-error" role="alert">
-      Seu acesso está bloqueado.
-      Fale com o responsável para verificar a situação.
+<div class="plan-container">
+  <div
+    id="waiting-status"
+    class="alert {% if access_status == 'blocked' %}alert-error{% endif %}"
+    role="status"
+    aria-live="polite"
+    {% if has_active_plan %}hidden{% endif %}
+  >
+    <span id="waiting-message">
+      {% if access_status == 'blocked' %}
+        Seu acesso está bloqueado.
+        Fale com o responsável para verificar a situação.
+
+      {% elif access_status == 'expired' %}
+        Seu plano venceu. Fale com o responsável
+        para combinar a renovação.
+
+      {% else %}
+        Cadastro realizado.
+        Aguardando confirmação do pagamento pelo responsável.
+      {% endif %}
+    </span>
+  </div>
+
+  <section
+    id="confirmation"
+    class="confirmation-card"
+    aria-live="polite"
+    {% if not has_active_plan %}hidden{% endif %}
+  >
+    <div class="confirmation-symbol" aria-hidden="true">
+      ✓
     </div>
 
-  {% elif access_status == 'expired' %}
-    <div class="alert" role="alert">
-      Seu plano venceu.
-      Fale com o responsável para combinar a renovação.
-    </div>
+    <h2>Pagamento confirmado!</h2>
 
-  {% elif has_active_plan %}
-    <div class="alert alert-success" role="status">
-      Seu plano está ativo.
-      Vencimento: {{ subscription_expires_on | date_br }}.
-    </div>
+    <p style="color: #065f46; font-size: 14px;">
+      Sua conta está liberada.
+      Faça login para começar a organizar suas finanças.
+    </p>
 
-  {% else %}
-    <div class="alert" role="status">
-      Sua conta foi criada. O acesso ao sistema será
-      liberado após a confirmação do responsável.
-    </div>
-  {% endif %}
+    <p
+      id="expiration-message"
+      class="small"
+      style="margin-top: 12px; color: #065f46;"
+    >
+      {% if subscription_expires_on %}
+        Próximo vencimento:
+        {{ subscription_expires_on | date_br }}.
+      {% endif %}
+    </p>
 
-  <section class="panel" style="padding: 32px;">
+    <form
+      method="POST"
+      action="{{ url_for('plan_login') }}"
+      id="confirmed-login-form"
+      style="margin-top: 22px;"
+    >
+      {{ action_form.hidden_tag() }}
+
+      <button type="submit" class="btn btn-block">
+        Ir para o login →
+      </button>
+    </form>
+  </section>
+
+  <p id="plan-sync" class="plan-sync" role="status">
+    Verificando situação do acesso…
+  </p>
+
+  <div
+    id="session-expired"
+    class="alert"
+    role="alert"
+    hidden
+  >
+    <span>
+      Sua sessão terminou.
+      Entre novamente para consultar a confirmação.
+
+      <a href="{{ url_for('login') }}">
+        Ir para o login
+      </a>
+    </span>
+  </div>
+
+  <section class="panel plan-card">
     <span class="badge badge-primary">
-      Um plano, controle pessoal e empresarial
+      Controle pessoal e empresarial
     </span>
 
     <h2 style="margin-top: 20px; font-size: 25px;">
@@ -47,13 +178,7 @@
     </h2>
 
     <div style="margin: 22px 0;">
-      <strong
-        style="
-          font-size: 45px;
-          letter-spacing: -2px;
-          color: var(--primary);
-        "
-      >
+      <strong class="plan-price">
         {{ price_cents | brl }}
       </strong>
 
@@ -65,14 +190,7 @@
       em um só lugar.
     </p>
 
-    <ul
-      style="
-        padding-left: 20px;
-        margin: 24px 0;
-        font-size: 13px;
-        line-height: 2.2;
-      "
-    >
+    <ul class="plan-features">
       <li>Controle pessoal e empresarial separado</li>
       <li>Receitas, despesas e contas pendentes</li>
       <li>Painel com atualização automática</li>
@@ -81,55 +199,43 @@
       <li>Relatórios e exportação CSV</li>
     </ul>
 
-    <a
-      href="{{ whatsapp_url }}"
-      target="_blank"
-      rel="noopener noreferrer"
-      class="btn btn-block"
-      style="background: #128c5e; padding: 14px;"
+    <div
+      id="contact-section"
+      {% if has_active_plan %}hidden{% endif %}
     >
-      Falar com o responsável
-      <span aria-hidden="true">↗</span>
-    </a>
-
-    <p
-      class="field-help"
-      style="text-align: center; margin-top: 12px;"
-    >
-      Abre o WhatsApp com uma mensagem pronta.
-      Você confere e envia a mensagem.
-    </p>
-
-    {% if has_active_plan %}
       <a
-        href="{{ url_for('dashboard') }}"
-        class="btn btn-secondary btn-block"
-        style="margin-top: 14px;"
+        href="{{ whatsapp_url }}"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="btn btn-block"
+        style="background: #128c5e; padding: 14px;"
       >
-        Acessar meu painel
+        Falar com o responsável
+        <span aria-hidden="true">↗</span>
       </a>
 
-    {% else %}
-      <a
-        href="{{ url_for('dashboard') }}"
-        class="btn btn-secondary btn-block"
-        style="margin-top: 14px;"
+      <p
+        class="field-help"
+        style="text-align: center; margin-top: 12px;"
       >
-        Já falei com o responsável · verificar acesso
-      </a>
-    {% endif %}
+        Abre o WhatsApp com uma mensagem pronta.
+        Confira e envie para combinar o pagamento.
+      </p>
+    </div>
 
     <div class="info-box" style="margin-top: 24px;">
       <strong>Como funciona?</strong>
       <br>
-      Você combina o pagamento diretamente pelo WhatsApp.
-      Depois de conferir, o responsável libera seu acesso
-      por um mês. As renovações também são combinadas
-      diretamente com ele.
+      Combine o pagamento diretamente com o responsável
+      pelo WhatsApp. Após conferir o recebimento,
+      ele confirma e libera seu acesso por um mês.
       <br><br>
-      Não há cobrança automática nesta página.
-      Clicar no botão ou enviar uma mensagem não libera
-      o acesso automaticamente.
+      Esta página acompanha a confirmação automaticamente
+      enquanto estiver aberta. Ao voltar do WhatsApp,
+      ela consulta a situação novamente.
+      <br><br>
+      Não há cobrança automática. Você não precisa
+      apertar nenhum botão para confirmar que pagou.
     </div>
 
     <p class="small muted" style="margin-top: 18px;">
@@ -138,5 +244,224 @@
       Informe esse código ao responsável.
     </p>
   </section>
+
+  <noscript>
+    <div class="alert">
+      <span>
+        Ative o JavaScript para acompanhar a confirmação
+        automaticamente ou
+        <a href="{{ url_for('plan') }}">
+          atualize esta página
+        </a>
+        depois de falar com o responsável.
+      </span>
+    </div>
+  </noscript>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (() => {
+    "use strict";
+
+    const apiUrl = {{ url_for("plan_status") | tojson }};
+    const dashboardUrl = {{ url_for("dashboard") | tojson }};
+
+    const waiting = document.getElementById("waiting-status");
+    const waitingMessage = document.getElementById(
+      "waiting-message"
+    );
+
+    const confirmation = document.getElementById(
+      "confirmation"
+    );
+
+    const expirationMessage = document.getElementById(
+      "expiration-message"
+    );
+
+    const contact = document.getElementById("contact-section");
+    const sync = document.getElementById("plan-sync");
+
+    const sessionExpired = document.getElementById(
+      "session-expired"
+    );
+
+    const loginForm = document.getElementById(
+      "confirmed-login-form"
+    );
+
+    let timer = null;
+    let loading = false;
+    let stopped = false;
+
+    function dateLabel(value) {
+      if (!value) {
+        return "";
+      }
+
+      return value.split("-").reverse().join("/");
+    }
+
+    function schedule() {
+      window.clearTimeout(timer);
+
+      if (!stopped && !document.hidden) {
+        timer = window.setTimeout(refresh, 5000);
+      }
+    }
+
+    function render(data) {
+      if (data.status === "admin") {
+        stopped = true;
+        window.location.assign(dashboardUrl);
+        return;
+      }
+
+      const active = (
+        data.status === "active"
+        && data.access_granted === true
+      );
+
+      confirmation.hidden = !active;
+      waiting.hidden = active;
+      contact.hidden = active;
+
+      waiting.classList.toggle(
+        "alert-error",
+        data.status === "blocked"
+      );
+
+      waitingMessage.textContent = data.message;
+
+      expirationMessage.textContent = (
+        active && data.expires_on
+          ? `Próximo vencimento: ${dateLabel(data.expires_on)}.`
+          : ""
+      );
+
+      // O destino do formulário permanece definido
+      // pelo servidor no HTML. Nenhum dado enviado pelo
+      // cliente confirma pagamento ou concede acesso.
+    }
+
+    async function refresh() {
+      if (stopped || loading || document.hidden) {
+        return;
+      }
+
+      if (!navigator.onLine) {
+        sync.textContent =
+          "Sem conexão. Aguardando internet para conferir novamente.";
+
+        schedule();
+        return;
+      }
+
+      loading = true;
+
+      const controller = new AbortController();
+
+      const timeout = window.setTimeout(
+        () => controller.abort(),
+        10000
+      );
+
+      try {
+        const response = await fetch(apiUrl, {
+          credentials: "same-origin",
+          cache: "no-store",
+          headers: {
+            "Accept": "application/json"
+          },
+          signal: controller.signal
+        });
+
+        if (response.status === 401 || response.redirected) {
+          stopped = true;
+
+          confirmation.hidden = true;
+          waiting.hidden = true;
+          sessionExpired.hidden = false;
+
+          sync.textContent =
+            "Entre novamente para consultar sua conta.";
+
+          return;
+        }
+
+        if (!response.ok) {
+          throw new Error("Falha ao consultar situação.");
+        }
+
+        const data = await response.json();
+
+        if (![
+          "pending",
+          "active",
+          "expired",
+          "blocked",
+          "admin"
+        ].includes(data.status)) {
+          throw new Error("Situação inválida.");
+        }
+
+        render(data);
+
+        if (stopped) {
+          return;
+        }
+
+        const time = new Intl.DateTimeFormat("pt-BR", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit"
+        }).format(new Date());
+
+        sync.textContent =
+          `Conferido às ${time} · atualização automática`;
+
+      } catch (error) {
+        sync.textContent =
+          "Não foi possível consultar agora. Tentando novamente…";
+
+      } finally {
+        window.clearTimeout(timeout);
+        loading = false;
+        schedule();
+      }
+    }
+
+    loginForm.addEventListener("submit", () => {
+      stopped = true;
+      window.clearTimeout(timer);
+    });
+
+    document.addEventListener("visibilitychange", () => {
+      window.clearTimeout(timer);
+
+      if (!document.hidden) {
+        refresh();
+      }
+    });
+
+    window.addEventListener("online", refresh);
+
+    window.addEventListener("offline", () => {
+      sync.textContent =
+        "Sem conexão. Aguardando internet para conferir novamente.";
+    });
+
+    window.addEventListener("focus", refresh);
+
+    window.addEventListener("pageshow", (event) => {
+      if (event.persisted) {
+        window.location.reload();
+      }
+    });
+
+    refresh();
+  })();
+</script>
 {% endblock %}
