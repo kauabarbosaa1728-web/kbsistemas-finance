@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% macro access_button(user, action, label, button_class, confirmation) %}
+{% macro access_button(user, action, label, button_class, confirmation, expiration='') %}
   <form
     method="POST"
     action="{{ url_for('admin_set_access', user_id=user.id) }}"
@@ -11,6 +11,14 @@
     {{ action_form.hidden_tag() }}
 
     <input type="hidden" name="action" value="{{ action }}">
+
+    {% if action == 'confirm_renewal' %}
+      <input
+        type="hidden"
+        name="expected_expires_on"
+        value="{{ expiration }}"
+      >
+    {% endif %}
 
     <button
       type="submit"
@@ -53,7 +61,16 @@
     <h1>Administração</h1>
 
     <p class="muted small">
-      Gerencie clientes e libere os acessos combinados pelo WhatsApp.
+      Confira os recebimentos e libere seus clientes.
+    </p>
+
+    <p
+      id="admin-sync"
+      class="small muted"
+      role="status"
+      style="margin-top: 10px;"
+    >
+      Atualização automática a cada 5 segundos.
     </p>
   </div>
 
@@ -66,47 +83,47 @@
   <section class="stat-card primary">
     <div class="stat-label">Clientes cadastrados</div>
 
-    <strong class="stat-value">
+    <strong class="stat-value" id="count-clients">
       {{ counts.clients }}
     </strong>
 
     <div class="stat-note">
-      Não inclui sua conta de administrador
+      Não inclui sua conta
     </div>
   </section>
 
   <section class="stat-card">
     <div class="stat-label">Planos ativos</div>
 
-    <strong class="stat-value positive">
+    <strong class="stat-value positive" id="count-active">
       {{ counts.active }}
     </strong>
 
     <div class="stat-note">
-      Clientes com acesso liberado e vigente
+      Acesso liberado e vigente
     </div>
   </section>
 
   <section class="stat-card">
-    <div class="stat-label">Aguardando liberação</div>
+    <div class="stat-label">Aguardando confirmação</div>
 
-    <strong class="stat-value">
+    <strong class="stat-value" id="count-pending">
       {{ counts.pending }}
     </strong>
 
     <div class="stat-note">
-      Cadastros ainda sem plano liberado
+      Cadastros sem pagamento confirmado
     </div>
   </section>
 
   <section class="stat-card">
     <div class="stat-label">Vencidos ou bloqueados</div>
 
-    <strong class="stat-value negative">
+    <strong class="stat-value negative" id="count-inactive">
       {{ counts.expired + counts.blocked }}
     </strong>
 
-    <div class="stat-note">
+    <div class="stat-note" id="count-inactive-detail">
       {{ counts.expired }} vencidos ·
       {{ counts.blocked }} bloqueados
     </div>
@@ -116,18 +133,17 @@
 <div class="info-box" style="margin-bottom: 22px;">
   <strong>Plano Completo — R$ 59,90/mês</strong>
   <br>
-  O cliente combina o pagamento diretamente com você
-  pelo WhatsApp. Após conferir o recebimento,
-  use <strong>Liberar 1 mês</strong> ou
-  <strong>Renovar +1 mês</strong>.
-  O sistema não verifica pagamentos automaticamente.
+  Confirme somente depois de conferir que recebeu o pagamento.
+  O botão registra sua confirmação manual e libera o acesso.
+  O sistema não consulta sua conta bancária nem as conversas
+  do WhatsApp.
 </div>
 
 <section class="panel">
   <div class="panel-heading">
     <div>
-      <h2>Clientes e usuários</h2>
-      <p>Identificação, situação de acesso e vencimento</p>
+      <h2>Cadastros e confirmações</h2>
+      <p>Novos cadastros aparecem automaticamente nesta lista.</p>
     </div>
   </div>
 
@@ -139,27 +155,25 @@
           <th>E-mail</th>
           <th>Cadastro</th>
           <th>Espaços</th>
-          <th>Situação</th>
+          <th>Pagamento / acesso</th>
           <th>Vencimento</th>
           <th class="text-right">Ações</th>
         </tr>
       </thead>
 
-      <tbody>
+      <tbody id="admin-users">
         {% for user in users %}
           {% set status = access_statuses.get(user.id, 'pending') %}
           {% set subscription = subscriptions.get(user.id) %}
+          {% set expiration = (
+            subscription.expires_on.isoformat()
+            if subscription else ''
+          ) %}
 
           <tr>
-            <td style="min-width: 160px;">
+            <td style="min-width: 150px;">
               <strong>{{ user.name }}</strong>
-
-              <div
-                class="muted"
-                style="margin-top: 4px; font-size: 10px;"
-              >
-                Código #{{ user.id }}
-              </div>
+              <div class="small muted">Código #{{ user.id }}</div>
             </td>
 
             <td>{{ user.email }}</td>
@@ -175,102 +189,98 @@
             <td>
               {% if status == 'admin' %}
                 <span class="badge badge-primary">
-                  Administrador
+                  Administrador · isento
                 </span>
 
               {% elif status == 'active' %}
                 <span class="badge badge-success">
-                  Ativo
+                  Confirmado · acesso ativo
                 </span>
 
               {% elif status == 'pending' %}
                 <span class="badge badge-warning">
-                  Aguardando liberação
+                  Aguardando confirmação
                 </span>
 
               {% elif status == 'expired' %}
-                <span class="badge badge-danger">
-                  Vencido
+                <span class="badge badge-warning">
+                  Renovação pendente
                 </span>
 
               {% else %}
                 <span class="badge badge-danger">
-                  Bloqueado
+                  Acesso bloqueado
                 </span>
               {% endif %}
             </td>
 
             <td class="nowrap">
               {% if status == 'admin' %}
-                <span class="muted">Isento</span>
-
+                Isento
               {% elif subscription %}
-                <strong>
-                  {{ subscription.expires_on | date_br }}
-                </strong>
-
-                <div
-                  class="muted"
-                  style="margin-top: 4px; font-size: 10px;"
-                >
-                  Acesso expira nesta data
-                </div>
-
+                {{ subscription.expires_on | date_br }}
               {% else %}
-                <span class="muted">Ainda não liberado</span>
+                —
               {% endif %}
             </td>
 
-            <td class="text-right" style="min-width: 240px;">
-              {% if status == 'admin' %}
-                <span class="small muted">
-                  Sua conta · acesso isento
-                </span>
+            <td style="min-width: 290px;">
+              <div
+                class="actions"
+                style="justify-content: flex-end;"
+              >
+                {% if status == 'admin' %}
+                  <span class="small muted">Sua conta</span>
 
-              {% else %}
-                <div
-                  class="actions"
-                  style="justify-content: flex-end;"
-                >
+                {% elif status == 'blocked' %}
+                  {{ access_button(
+                    user,
+                    'unblock',
+                    'Remover bloqueio',
+                    'btn-secondary',
+                    'Remover o bloqueio? Isso não confirma um novo pagamento nem altera o vencimento.'
+                  ) }}
+
+                {% else %}
                   {% if status == 'active' %}
                     {{ access_button(
                       user,
-                      'renew',
-                      'Renovar +1 mês',
+                      'confirm_renewal',
+                      'Confirmar renovação +1 mês',
                       'btn-soft',
-                      'Você conferiu o pagamento? Esta ação acrescenta um mês ao vencimento atual. Confirmar renovação?'
+                      'Você recebeu o pagamento da renovação? Confirmar acrescenta um mês ao vencimento atual.',
+                      expiration
                     ) }}
 
-                  {% elif status == 'blocked' %}
+                  {% elif status == 'expired' %}
                     {{ access_button(
                       user,
-                      'unblock',
-                      'Desbloquear / liberar',
+                      'confirm_renewal',
+                      'Confirmar renovação e liberar',
                       'btn-soft',
-                      'Liberar este cliente? Se a assinatura ainda estiver vigente, o vencimento será mantido. Caso contrário, será liberado um mês a partir de hoje.'
+                      'Você recebeu o pagamento? Confirmar libera um mês a partir de hoje.',
+                      expiration
                     ) }}
 
                   {% else %}
                     {{ access_button(
                       user,
-                      'activate',
-                      'Liberar 1 mês',
+                      'confirm_payment',
+                      'Confirmar pagamento e liberar 1 mês',
                       'btn-soft',
-                      'Você conferiu o pagamento? Confirmar a liberação de um mês a partir de hoje?'
+                      'Você conferiu que recebeu R$ 59,90 deste cliente? Confirmar libera o acesso por um mês.'
                     ) }}
                   {% endif %}
 
-                  {% if status != 'blocked' %}
-                    {{ access_button(
-                      user,
-                      'block',
-                      'Bloquear',
-                      'btn-danger',
-                      'Bloquear o acesso deste cliente? Os dados e o vencimento serão preservados. O prazo da assinatura continuará correndo.'
-                    ) }}
-                  {% endif %}
-                </div>
-              {% endif %}
+                  {{ access_button(
+                    user,
+                    'block',
+                    'Bloquear',
+                    'btn-danger',
+                    'Bloquear o acesso? Os dados e o vencimento serão preservados.'
+                  ) }}
+                {% endif %}
+              </div>
             </td>
           </tr>
         {% endfor %}
@@ -279,65 +289,431 @@
   </div>
 </section>
 
-<div class="grid-equal">
-  <section class="panel">
-    <h2>Liberação e renovação</h2>
-
-    <p class="small muted" style="margin-top: 12px;">
-      Liberar concede um mês a partir de hoje quando
-      não existe um plano vigente. Renovar acrescenta
-      um mês ao vencimento atual quando ele ainda está
-      no futuro.
-    </p>
-
-    <p class="small muted" style="margin-top: 12px;">
-      O acesso deixa de valer no início da data de
-      vencimento, pelo horário de Brasília.
-      Sem renovação, o cliente volta à página do plano.
-    </p>
-
-    <p class="small muted" style="margin-top: 12px;">
-      Cada confirmação de renovação acrescenta um mês.
-      Confirme apenas uma vez para cada mês contratado.
-    </p>
-  </section>
-
-  <section class="panel">
-    <h2>Dados preservados</h2>
-
-    <p class="small muted" style="margin-top: 12px;">
-      Bloquear ou deixar um plano vencer não apaga
-      os lançamentos, contas ou metas do cliente.
-      Ao liberar novamente, os dados continuam disponíveis.
-    </p>
-
-    <p class="small muted" style="margin-top: 12px;">
-      Este painel mostra dados cadastrais e de acesso.
-      Os registros financeiros dos clientes continuam privados.
-    </p>
-  </section>
+<div class="info-box">
+  <strong>Enquanto o pagamento não for confirmado</strong>
+  <br>
+  O cliente continua aguardando na página do plano.
+  Ele não precisa clicar em “paguei” nem enviar uma
+  confirmação pelo sistema.
+  <br><br>
+  O vencimento é o primeiro dia sem acesso.
+  Bloquear um cliente não pausa o prazo e não apaga
+  seus dados financeiros.
 </div>
 
-<p class="small muted">
-  Informações consultadas ao abrir esta página.
-  Atualize a página para conferir novos cadastros.
-</p>
+<noscript>
+  <div class="alert" style="margin-top: 20px;">
+    Ative o JavaScript para receber novos cadastros
+    automaticamente. Sem ele, atualize a página
+    para consultar a lista.
+  </div>
+</noscript>
 {% endblock %}
 
 {% block scripts %}
 <script>
   (() => {
-    document.querySelectorAll("[data-access-form]")
-      .forEach((form) => {
-        form.addEventListener("submit", (event) => {
-          const message = form.dataset.confirm
-            || "Confirmar alteração de acesso?";
+    "use strict";
 
-          if (!window.confirm(message)) {
-            event.preventDefault();
-          }
+    const tableBody = document.getElementById("admin-users");
+    const sync = document.getElementById("admin-sync");
+
+    const apiUrl = {{ url_for("admin_status") | tojson }};
+    const loginUrl = {{ url_for("login") | tojson }};
+
+    const actionTemplate = {{
+      url_for("admin_set_access", user_id=0) | tojson
+    }};
+
+    const csrfToken = document.querySelector(
+      'meta[name="csrf-token"]'
+    ).content;
+
+    let timer = null;
+    let loading = false;
+    let stopped = false;
+    let submitting = false;
+    let signature = null;
+
+    function element(tag, className, text) {
+      const node = document.createElement(tag);
+
+      if (className) {
+        node.className = className;
+      }
+
+      if (text !== undefined) {
+        node.textContent = text;
+      }
+
+      return node;
+    }
+
+    function dateLabel(value) {
+      if (!value) {
+        return "—";
+      }
+
+      return value.slice(0, 10).split("-").reverse().join("/");
+    }
+
+    function hiddenInput(name, value) {
+      const input = document.createElement("input");
+
+      input.type = "hidden";
+      input.name = name;
+      input.value = value;
+
+      return input;
+    }
+
+    function actionForm(user, action, label, style, message) {
+      const form = element("form", "inline-form");
+
+      form.method = "POST";
+
+      form.action = actionTemplate.replace(
+        "/0/acesso",
+        `/${user.id}/acesso`
+      );
+
+      form.dataset.accessForm = "";
+      form.dataset.confirm = message;
+
+      form.append(
+        hiddenInput("csrf_token", csrfToken),
+        hiddenInput("action", action)
+      );
+
+      if (action === "confirm_renewal") {
+        form.append(
+          hiddenInput(
+            "expected_expires_on",
+            user.expires_on || ""
+          )
+        );
+      }
+
+      const button = element(
+        "button",
+        `btn btn-sm ${style}`,
+        label
+      );
+
+      button.type = "submit";
+      form.append(button);
+
+      return form;
+    }
+
+    function renderUser(user) {
+      const row = document.createElement("tr");
+      const identity = document.createElement("td");
+
+      identity.style.minWidth = "150px";
+
+      identity.append(
+        element("strong", "", user.name),
+        element("div", "small muted", `Código #${user.id}`)
+      );
+
+      const statusCell = document.createElement("td");
+
+      const statusLabels = {
+        admin: ["badge-primary", "Administrador · isento"],
+        active: ["badge-success", "Confirmado · acesso ativo"],
+        pending: ["badge-warning", "Aguardando confirmação"],
+        expired: ["badge-warning", "Renovação pendente"],
+        blocked: ["badge-danger", "Acesso bloqueado"]
+      };
+
+      const [badgeClass, label] = statusLabels[user.status]
+        || ["badge-warning", "Verificar situação"];
+
+      statusCell.append(
+        element("span", `badge ${badgeClass}`, label)
+      );
+
+      const actionsCell = document.createElement("td");
+      actionsCell.style.minWidth = "290px";
+
+      const actions = element("div", "actions");
+      actions.style.justifyContent = "flex-end";
+
+      if (user.status === "admin") {
+        actions.append(
+          element("span", "small muted", "Sua conta")
+        );
+
+      } else if (user.status === "blocked") {
+        actions.append(
+          actionForm(
+            user,
+            "unblock",
+            "Remover bloqueio",
+            "btn-secondary",
+            "Remover o bloqueio? Isso não confirma " +
+            "um novo pagamento nem altera o vencimento."
+          )
+        );
+
+      } else {
+        if (user.status === "active") {
+          actions.append(
+            actionForm(
+              user,
+              "confirm_renewal",
+              "Confirmar renovação +1 mês",
+              "btn-soft",
+              "Você recebeu o pagamento da renovação? " +
+              "Confirmar acrescenta um mês ao vencimento atual."
+            )
+          );
+
+        } else if (user.status === "expired") {
+          actions.append(
+            actionForm(
+              user,
+              "confirm_renewal",
+              "Confirmar renovação e liberar",
+              "btn-soft",
+              "Você recebeu o pagamento? Confirmar libera " +
+              "um mês a partir de hoje."
+            )
+          );
+
+        } else if (user.status === "pending") {
+          actions.append(
+            actionForm(
+              user,
+              "confirm_payment",
+              "Confirmar pagamento e liberar 1 mês",
+              "btn-soft",
+              "Você conferiu que recebeu R$ 59,90 " +
+              "deste cliente? Confirmar libera o acesso por um mês."
+            )
+          );
+        }
+
+        actions.append(
+          actionForm(
+            user,
+            "block",
+            "Bloquear",
+            "btn-danger",
+            "Bloquear o acesso? Os dados e o vencimento " +
+            "serão preservados."
+          )
+        );
+      }
+
+      actionsCell.append(actions);
+
+      row.append(
+        identity,
+        element("td", "", user.email),
+        element("td", "nowrap", dateLabel(user.created_at)),
+        element("td", "", String(user.workspace_count)),
+        statusCell,
+        element(
+          "td",
+          "nowrap",
+          user.status === "admin"
+            ? "Isento"
+            : dateLabel(user.expires_on)
+        ),
+        actionsCell
+      );
+
+      return row;
+    }
+
+    function render(data) {
+      document.getElementById("count-clients").textContent =
+        data.counts.clients;
+
+      document.getElementById("count-active").textContent =
+        data.counts.active;
+
+      document.getElementById("count-pending").textContent =
+        data.counts.pending;
+
+      document.getElementById("count-inactive").textContent =
+        data.counts.expired + data.counts.blocked;
+
+      document.getElementById(
+        "count-inactive-detail"
+      ).textContent =
+        `${data.counts.expired} vencidos · ` +
+        `${data.counts.blocked} bloqueados`;
+
+      const fragment = document.createDocumentFragment();
+
+      for (const user of data.users) {
+        fragment.append(renderUser(user));
+      }
+
+      tableBody.replaceChildren(fragment);
+    }
+
+    function schedule() {
+      window.clearTimeout(timer);
+
+      if (!stopped && !submitting && !document.hidden) {
+        timer = window.setTimeout(refresh, 5000);
+      }
+    }
+
+    async function refresh() {
+      if (
+        stopped
+        || submitting
+        || loading
+        || document.hidden
+      ) {
+        return;
+      }
+
+      if (!navigator.onLine) {
+        sync.textContent =
+          "Sem conexão. Exibindo os últimos dados.";
+        schedule();
+        return;
+      }
+
+      loading = true;
+
+      const controller = new AbortController();
+
+      const timeout = window.setTimeout(
+        () => controller.abort(),
+        10000
+      );
+
+      try {
+        const response = await fetch(apiUrl, {
+          credentials: "same-origin",
+          cache: "no-store",
+          headers: {
+            "Accept": "application/json"
+          },
+          signal: controller.signal
         });
-      });
+
+        if (response.status === 401 || response.redirected) {
+          stopped = true;
+          sync.textContent = "Sessão encerrada. Entre novamente.";
+          window.location.assign(loginUrl);
+          return;
+        }
+
+        if (response.status === 403) {
+          stopped = true;
+          sync.textContent =
+            "Esta sessão não tem acesso à administração.";
+
+          tableBody.replaceChildren();
+          return;
+        }
+
+        if (!response.ok) {
+          throw new Error("Falha na atualização.");
+        }
+
+        const data = await response.json();
+
+        const nextSignature = JSON.stringify({
+          users: data.users,
+          counts: data.counts
+        });
+
+        // Preserva o foco enquanto você usa os botões.
+        // A próxima consulta atualizará a tabela depois.
+        const usingTable = tableBody.contains(
+          document.activeElement
+        );
+
+        if (
+          !submitting
+          && !usingTable
+          && nextSignature !== signature
+        ) {
+          render(data);
+          signature = nextSignature;
+        }
+
+        const time = new Intl.DateTimeFormat("pt-BR", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit"
+        }).format(new Date());
+
+        sync.textContent = usingTable
+          ? "Consulta concluída. A lista atualizará após você sair dos botões."
+          : `Conferido às ${time} · atualização automática`;
+
+      } catch (error) {
+        sync.textContent =
+          "Não foi possível atualizar. Tentando novamente…";
+
+      } finally {
+        window.clearTimeout(timeout);
+        loading = false;
+        schedule();
+      }
+    }
+
+    document.addEventListener("submit", (event) => {
+      const form = event.target;
+
+      if (
+        !(form instanceof HTMLFormElement)
+        || !form.matches("[data-access-form]")
+      ) {
+        return;
+      }
+
+      if (submitting) {
+        event.preventDefault();
+        return;
+      }
+
+      const confirmed = window.confirm(
+        form.dataset.confirm || "Confirmar alteração?"
+      );
+
+      if (!confirmed) {
+        event.preventDefault();
+        return;
+      }
+
+      submitting = true;
+      window.clearTimeout(timer);
+
+      form.querySelectorAll('button[type="submit"]')
+        .forEach((button) => {
+          button.disabled = true;
+          button.textContent = "Salvando…";
+        });
+    });
+
+    document.addEventListener("visibilitychange", () => {
+      window.clearTimeout(timer);
+
+      if (!document.hidden) {
+        refresh();
+      }
+    });
+
+    window.addEventListener("online", refresh);
+
+    window.addEventListener("pageshow", (event) => {
+      if (event.persisted) {
+        window.location.reload();
+      }
+    });
+
+    refresh();
   })();
 </script>
 {% endblock %}
