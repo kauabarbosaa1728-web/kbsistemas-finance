@@ -1,0 +1,450 @@
+{% extends "base.html" %}
+
+{% block extra_head %}
+<style>
+  .report-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+
+    padding: 16px 0;
+    border-bottom: 1px solid var(--border);
+
+    font-size: 13px;
+  }
+
+  .report-row:last-child {
+    border-bottom: 0;
+  }
+
+  .report-row strong {
+    white-space: nowrap;
+  }
+
+  .report-highlight {
+    margin-top: 12px;
+    padding: 16px;
+
+    border-radius: 10px;
+    background: var(--primary-light);
+    border-bottom: 0;
+  }
+
+  @media print {
+    .sidebar,
+    .topbar,
+    .mobile-overlay,
+    .report-controls,
+    .site-footer,
+    .alert {
+      display: none !important;
+    }
+
+    .main {
+      margin-left: 0;
+    }
+
+    .content {
+      max-width: none;
+      padding: 0;
+    }
+
+    body {
+      background: white;
+      color: black;
+    }
+
+    .panel,
+    .stat-card {
+      box-shadow: none;
+      break-inside: avoid;
+    }
+
+    .cards {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .grid-equal {
+      display: block;
+    }
+
+    .stat-card.primary {
+      background: white;
+      color: black;
+      border: 1px solid #ccc;
+    }
+
+    .stat-card.primary .stat-label,
+    .stat-card.primary .stat-note {
+      color: #555;
+    }
+
+    .table-wrap {
+      overflow: visible;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-heading">
+  <div>
+    <h1>Relatórios financeiros</h1>
+
+    <p class="muted small">
+      {{ workspace.name }} ·
+      Referência: {{ month[5:7] }}/{{ month[:4] }}
+    </p>
+  </div>
+
+  <div class="actions report-controls">
+    <a
+      href="{{ url_for('export_csv', month=month) }}"
+      class="btn btn-secondary"
+    >
+      Exportar CSV
+    </a>
+
+    <button type="button" class="btn" id="print-report">
+      Imprimir / Salvar PDF
+    </button>
+  </div>
+</div>
+
+<section class="panel report-controls">
+  <form
+    method="GET"
+    action="{{ url_for('reports') }}"
+    class="actions"
+    style="align-items: flex-end;"
+  >
+    <div>
+      <label for="report-month" class="small muted">
+        Mês de referência
+      </label>
+
+      <input
+        type="month"
+        id="report-month"
+        name="month"
+        value="{{ month }}"
+        min="1900-01"
+        max="9998-12"
+        required
+        style="margin-top: 6px;"
+      >
+    </div>
+
+    <button type="submit" class="btn">
+      Consultar
+    </button>
+  </form>
+</section>
+
+<div class="cards">
+  <section class="stat-card primary">
+    <div class="stat-label">Saldo acumulado</div>
+
+    <strong class="stat-value">
+      {{ summary.balance_cents | brl }}
+    </strong>
+
+    <div class="stat-note">
+      Saldo inicial + realizados até o fim do mês
+    </div>
+  </section>
+
+  <section class="stat-card">
+    <div class="stat-label">Receitas realizadas</div>
+
+    <strong class="stat-value positive">
+      {{ summary.income_cents | brl }}
+    </strong>
+
+    <div class="stat-note">
+      Recebimentos efetivos do mês
+    </div>
+  </section>
+
+  <section class="stat-card">
+    <div class="stat-label">Despesas realizadas</div>
+
+    <strong class="stat-value negative">
+      {{ summary.expense_cents | brl }}
+    </strong>
+
+    <div class="stat-note">
+      Pagamentos efetivos do mês
+    </div>
+  </section>
+
+  <section class="stat-card">
+    <div class="stat-label">Resultado do mês</div>
+
+    <strong
+      class="stat-value {{ 'negative' if summary.result_cents < 0 else 'positive' }}"
+    >
+      {{ summary.result_cents | brl }}
+    </strong>
+
+    <div class="stat-note">
+      Receitas menos despesas realizadas
+    </div>
+  </section>
+</div>
+
+<div class="grid-equal">
+  <section class="panel">
+    <div class="panel-heading">
+      <div>
+        <h2>Resultado realizado</h2>
+        <p>Pela data efetiva de pagamento ou recebimento</p>
+      </div>
+    </div>
+
+    <div class="report-row">
+      <span class="muted">Receitas do mês</span>
+
+      <strong class="positive">
+        {{ summary.income_cents | brl }}
+      </strong>
+    </div>
+
+    <div class="report-row">
+      <span class="muted">Despesas do mês</span>
+
+      <strong class="negative">
+        {{ summary.expense_cents | brl }}
+      </strong>
+    </div>
+
+    <div class="report-row report-highlight">
+      <span>Resultado</span>
+
+      <strong
+        class="{{ 'negative' if summary.result_cents < 0 else 'positive' }}"
+      >
+        {{ summary.result_cents | brl }}
+      </strong>
+    </div>
+
+    <div class="report-row">
+      <span class="muted">Percentual das receitas retido</span>
+
+      <strong>
+        {% if summary.savings_rate is not none %}
+          {{ '%.1f' | format(summary.savings_rate) | replace('.', ',') }}%
+        {% else %}
+          —
+        {% endif %}
+      </strong>
+    </div>
+
+    <p class="field-help">
+      O percentual compara o resultado com as receitas
+      realizadas. Sem receitas, ele não é calculado.
+      Esse indicador não comprova que o valor foi reservado.
+    </p>
+  </section>
+
+  <section class="panel">
+    <div class="panel-heading">
+      <div>
+        <h2>Compromissos pendentes</h2>
+        <p>Pelo vencimento no mês selecionado</p>
+      </div>
+    </div>
+
+    <div class="report-row">
+      <span class="muted">A receber</span>
+
+      <strong class="positive">
+        {{ summary.pending_income_cents | brl }}
+      </strong>
+    </div>
+
+    <div class="report-row">
+      <span class="muted">A pagar</span>
+
+      <strong class="negative">
+        {{ summary.pending_expense_cents | brl }}
+      </strong>
+    </div>
+
+    {% set pending_result = (
+      summary.pending_income_cents
+      - summary.pending_expense_cents
+    ) %}
+
+    <div class="report-row">
+      <span class="muted">Diferença entre pendências</span>
+
+      <strong
+        class="{{ 'negative' if pending_result < 0 else 'positive' }}"
+      >
+        {{ pending_result | brl }}
+      </strong>
+    </div>
+
+    <div
+      class="info-box"
+      style="
+        margin-top: 18px;
+        background: var(--warning-light);
+        color: var(--warning);
+      "
+    >
+      <strong>
+        {{ summary.overdue_expense_cents | brl }}
+      </strong>
+      em despesas vencidas e ainda pendentes,
+      considerando todos os meses e a data de hoje.
+      Esse valor pode incluir contas já exibidas em “A pagar”.
+    </div>
+  </section>
+</div>
+
+<section class="panel">
+  <div class="panel-heading">
+    <div>
+      <h2>Evolução financeira</h2>
+      <p>Resultados realizados dos últimos seis meses</p>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Mês</th>
+          <th class="text-right">Receitas</th>
+          <th class="text-right">Despesas</th>
+          <th class="text-right">Resultado</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {% for item in summary.chart %}
+          {% set result = item.income_cents - item.expense_cents %}
+
+          <tr>
+            <td class="nowrap">
+              <strong>
+                {{ item.month[5:7] }}/{{ item.month[:4] }}
+              </strong>
+            </td>
+
+            <td class="text-right nowrap positive">
+              {{ item.income_cents | brl }}
+            </td>
+
+            <td class="text-right nowrap negative">
+              {{ item.expense_cents | brl }}
+            </td>
+
+            <td
+              class="text-right nowrap {{ 'negative' if result < 0 else 'positive' }}"
+            >
+              <strong>{{ result | brl }}</strong>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-heading">
+    <div>
+      <h2>Orçamento por categoria</h2>
+      <p>Comparação entre limites e despesas realizadas do mês</p>
+    </div>
+  </div>
+
+  {% if summary.budgets %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Categoria</th>
+            <th class="text-right">Limite</th>
+            <th class="text-right">Gasto</th>
+            <th class="text-right">Diferença</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for item in summary.budgets %}
+            {% set difference = item.limit_cents - item.spent_cents %}
+
+            <tr>
+              <td>{{ item.category }}</td>
+
+              <td class="text-right nowrap">
+                {{ item.limit_cents | brl }}
+              </td>
+
+              <td class="text-right nowrap">
+                {{ item.spent_cents | brl }}
+              </td>
+
+              <td
+                class="text-right nowrap {{ 'negative' if difference < 0 else 'positive' }}"
+              >
+                {{ difference | brl }}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+  {% else %}
+    <div class="empty-state">
+      <p>Nenhum limite definido para este mês.</p>
+
+      <a
+        href="{{ url_for('budgets', month=month) }}"
+        class="btn btn-soft report-controls"
+      >
+        Definir planejamento
+      </a>
+    </div>
+  {% endif %}
+</section>
+
+<div class="info-box">
+  <strong>Como interpretar este relatório</strong>
+  <br>
+  Receitas e despesas realizadas usam a data em que o
+  dinheiro entrou ou saiu. Pendências e a exportação CSV
+  usam o mês do vencimento; por isso, o total do CSV
+  pode ser diferente do resultado realizado.
+  <br><br>
+  Este é um relatório de controle de caixa.
+  O resultado apresentado não representa, por si só,
+  lucro contábil da empresa.
+</div>
+
+<p class="small muted" style="margin-top: 18px;">
+  Os dados refletem a consulta desta página.
+  Para acompanhar alterações automaticamente,
+  utilize a Visão geral.
+</p>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (() => {
+    const printButton = document.getElementById("print-report");
+
+    if (printButton) {
+      printButton.addEventListener("click", () => {
+        window.print();
+      });
+    }
+  })();
+</script>
+{% endblock %}
